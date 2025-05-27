@@ -13,6 +13,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: theme.colors.outline,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
+          height: 60,
         },
       }}>
       <Tabs.Screen
@@ -28,9 +29,15 @@ export default function TabLayout() {
         name="add"
         options={{
           title: '添加',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size, focused }) => (
             <View style={styles.addButtonContainer}>
-              <MaterialCommunityIcons name="plus-circle" size={size * 1.5} color={color} />
+              <View style={[styles.addButton, focused && styles.addButtonActive]}>
+                <MaterialCommunityIcons 
+                  name="plus" 
+                  size={size * 1.2} 
+                  color={focused ? '#fff' : color} 
+                />
+              </View>
             </View>
           ),
         }}
@@ -50,8 +57,27 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   addButtonContainer: {
-    backgroundColor: 'transparent',
-    borderRadius: 20,
-    padding: 4,
+    position: 'absolute',
+    bottom: 5,
+    alignSelf: 'center',
+  },
+  addButton: {
+    backgroundColor: '#fff',
+    borderRadius: 30,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  addButtonActive: {
+    backgroundColor: '#2196F3',
   },
 });
