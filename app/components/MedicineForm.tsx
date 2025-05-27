@@ -2,13 +2,14 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { Button, Modal, Portal, Snackbar, Text, TextInput } from 'react-native-paper';
+import { Button, Modal, Portal, Text, TextInput } from 'react-native-paper';
 
 interface MedicineFormProps {
   onSubmit: (data: MedicineData) => void;
   onCancel: () => void;
   initialData?: MedicineData;
   isEdit?: boolean;
+  showSnackbar: (msg: string, type?: 'error' | 'warning' | 'success' | 'info') => void;
 }
 
 export interface MedicineData {
@@ -18,20 +19,13 @@ export interface MedicineData {
   reminderDate: Date;
 }
 
-export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit = false }: MedicineFormProps) {
+export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit = false, showSnackbar }: MedicineFormProps) {
   const [name, setName] = useState(initialData?.name || '');
   const [image, setImage] = useState<string | undefined>(initialData?.image);
   const [dosage, setDosage] = useState(initialData?.dosage || '');
   const [reminderDate, setReminderDate] = useState(initialData?.reminderDate || new Date());
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [isImagePickerVisible, setImagePickerVisible] = useState(false);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-
-  const showSnackbar = (message: string) => {
-    setSnackbarMessage(message);
-    setSnackbarVisible(true);
-  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -50,7 +44,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      showSnackbar('需要相机权限才能拍照');
+      showSnackbar('需要相机权限才能拍照', 'error');
       return;
     }
 
@@ -87,11 +81,11 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
 
   const handleSubmit = () => {
     if (!name.trim()) {
-      showSnackbar('请输入药品名称');
+      showSnackbar('请输入药品名称', 'error');
       return;
     }
     if (!reminderDate) {
-      showSnackbar('请选择提醒日期');
+      showSnackbar('请选择提醒日期', 'error');
       return;
     }
 
@@ -112,13 +106,15 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
 
   return (
     <View style={styles.container}>
+      {isEdit && (
+        <Text style={styles.editTitle}>正在编辑：{name}</Text>
+      )}
       <TextInput
         label="药品名称"
         value={name}
         onChangeText={setName}
         style={styles.input}
       />
-      
       <View style={styles.imageSection}>
         <Text style={styles.label}>添加照片（可选）</Text>
         <Button 
@@ -132,7 +128,6 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           <Image source={{ uri: image }} style={styles.previewImage} />
         )}
       </View>
-
       <TextInput
         label="药量（可选）"
         value={dosage}
@@ -140,23 +135,48 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
         keyboardType="numeric"
         style={styles.input}
       />
-
-      <Button
-        mode="outlined"
-        onPress={() => setDatePickerVisible(true)}
-        style={styles.input}
-      >
-        提醒日期: {reminderDate.toLocaleString()}
-      </Button>
-
-      <DateTimePickerModal
-        isVisible={isDatePickerVisible}
-        mode="datetime"
-        onConfirm={handleConfirm}
-        onCancel={() => setDatePickerVisible(false)}
-        date={reminderDate}
-      />
-
+      {/* 提醒时间选择 */}
+      {isWeb ? (
+        <View style={styles.webDateTimeContainer}>
+          <Text style={styles.label}>提醒日期</Text>
+          <input
+            type="datetime-local"
+            value={reminderDate.toISOString().slice(0, 16)}
+            onChange={e => {
+              const value = e.target.value;
+              setReminderDate(new Date(value));
+            }}
+            style={{
+              padding: 10,
+              borderRadius: 4,
+              border: '1px solid #ccc',
+              fontSize: 16,
+              marginTop: 8,
+              marginBottom: 16,
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+            }}
+          />
+        </View>
+      ) : (
+        <Button
+          mode="outlined"
+          onPress={() => setDatePickerVisible(true)}
+          style={styles.input}
+        >
+          提醒日期: {reminderDate.toLocaleString()}
+        </Button>
+      )}
+      {!isWeb && (
+        <DateTimePickerModal
+          isVisible={isDatePickerVisible}
+          mode="datetime"
+          onConfirm={handleConfirm}
+          onCancel={() => setDatePickerVisible(false)}
+          date={reminderDate}
+        />
+      )}
       <Portal>
         <Modal
           visible={isImagePickerVisible}
@@ -191,20 +211,6 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           </View>
         </Modal>
       </Portal>
-
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}
-        action={{
-          label: '确定',
-          onPress: () => setSnackbarVisible(false),
-        }}
-        style={styles.snackbar}
-      >
-        {snackbarMessage}
-      </Snackbar>
-
       <View style={styles.buttonContainer}>
         <Button mode="outlined" onPress={onCancel} style={styles.button}>
           取消
@@ -230,6 +236,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    paddingBottom: 80,
+  },
+  editTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   input: {
     marginBottom: 16,
@@ -296,5 +310,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+  },
+  webDateTimeContainer: {
+    marginBottom: 16,
   },
 }); 

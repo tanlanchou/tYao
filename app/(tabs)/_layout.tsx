@@ -14,6 +14,7 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           height: 60,
+          position: 'relative',
         },
       }}>
       <Tabs.Screen
@@ -54,12 +55,13 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
 const styles = StyleSheet.create({
   addButtonContainer: {
     position: 'absolute',
     bottom: 5,
     alignSelf: 'center',
+    left: '50%',
+    transform: [{ translateX: -30 }], // 按钮宽度的一半
   },
   addButton: {
     backgroundColor: '#fff',
@@ -81,3 +83,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
   },
 });
+
