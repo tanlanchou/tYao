@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Button, Modal, Portal, Text, TextInput } from 'react-native-paper';
+import SimpleModalButton from './SimpleModalButton';
 
 interface MedicineFormProps {
   onSubmit: (data: MedicineData) => void;
@@ -24,7 +24,6 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
   const [image, setImage] = useState<string | undefined>(initialData?.image);
   const [dosage, setDosage] = useState(initialData?.dosage || '');
   const [reminderDate, setReminderDate] = useState(initialData?.reminderDate || new Date());
-  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [isImagePickerVisible, setImagePickerVisible] = useState(false);
 
   const pickImage = async () => {
@@ -97,13 +96,6 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
     });
   };
 
-  const handleConfirm = (date: Date) => {
-    setDatePickerVisible(false);
-    setReminderDate(date);
-  };
-
-  const isWeb = Platform.OS === 'web';
-
   return (
     <View style={styles.container}>
       {isEdit && (
@@ -136,47 +128,10 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
         style={styles.input}
       />
       {/* 提醒时间选择 */}
-      {isWeb ? (
-        <View style={styles.webDateTimeContainer}>
-          <Text style={styles.label}>提醒日期</Text>
-          <input
-            type="datetime-local"
-            value={reminderDate.toISOString().slice(0, 16)}
-            onChange={e => {
-              const value = e.target.value;
-              setReminderDate(new Date(value));
-            }}
-            style={{
-              padding: 10,
-              borderRadius: 4,
-              border: '1px solid #ccc',
-              fontSize: 16,
-              marginTop: 8,
-              marginBottom: 16,
-              width: '100%',
-              maxWidth: '100%',
-              boxSizing: 'border-box',
-            }}
-          />
-        </View>
-      ) : (
-        <Button
-          mode="outlined"
-          onPress={() => setDatePickerVisible(true)}
-          style={styles.input}
-        >
-          提醒日期: {reminderDate.toLocaleString()}
-        </Button>
-      )}
-      {!isWeb && (
-        <DateTimePickerModal
-          isVisible={isDatePickerVisible}
-          mode="datetime"
-          onConfirm={handleConfirm}
-          onCancel={() => setDatePickerVisible(false)}
-          date={reminderDate}
-        />
-      )}
+      <SimpleModalButton
+        label="提醒日期"
+        buttonStyle={styles.imageButton}
+      />
       <Portal>
         <Modal
           visible={isImagePickerVisible}
@@ -191,7 +146,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           ]}
         >
           <View style={styles.modalContent}>
-            {isWeb ? (
+            {Platform.OS === 'web' ? (
               <Button mode="contained" onPress={handleFileUpload} style={styles.modalButton}>
                 选择文件
               </Button>
@@ -256,6 +211,7 @@ const styles = StyleSheet.create({
   },
   imageButton: {
     marginBottom: 8,
+    width: '100%',
   },
   previewImage: {
     width: '100%',
@@ -310,8 +266,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-  },
-  webDateTimeContainer: {
-    marginBottom: 16,
   },
 }); 
