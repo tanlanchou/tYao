@@ -3,6 +3,7 @@ import { Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Button, Checkbox, Chip, Dialog, IconButton, Modal, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import MedicineForm, { MedicineData } from '../components/MedicineForm';
+import { WebDatePicker, WebTimePicker } from '../components/WebPickers';
 
 interface ReminderData {
   reminderDate: Date;
@@ -44,6 +45,12 @@ export default function AddScreen() {
   const [repeatType, setRepeatType] = useState<ReminderData['repeatType']>('single');
   const [customPeriod, setCustomPeriod] = useState<number>(7);
   const [customDays, setCustomDays] = useState<number[]>([]);
+
+  // 添加 Web 时间选择器状态
+  const [isWebTimePickerVisible, setIsWebTimePickerVisible] = useState(false);
+
+  // 添加 Web 日期选择器状态
+  const [isWebDatePickerVisible, setIsWebDatePickerVisible] = useState(false);
 
   const theme = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -205,10 +212,29 @@ export default function AddScreen() {
     setEditingIndex(null);
   };
 
-  // 时间提醒相关处理函数
+  // 修改日期选择处理函数
+  const handleDatePress = () => {
+    if (Platform.OS === 'web') {
+      setIsWebDatePickerVisible(true);
+    } else {
+      setDatePickerVisible(true);
+    }
+  };
+
   const handleDateConfirm = (date: Date) => {
     setReminderDate(date);
     setDatePickerVisible(false);
+    setIsWebDatePickerVisible(false);
+  };
+
+  // 修改时间选择处理函数
+  const handleTimePress = (index: number) => {
+    setCurrentTimeIndex(index);
+    if (Platform.OS === 'web') {
+      setIsWebTimePickerVisible(true);
+    } else {
+      setTimePickerVisible(true);
+    }
   };
 
   const handleTimeConfirm = (time: Date) => {
@@ -216,6 +242,7 @@ export default function AddScreen() {
     newTimes[currentTimeIndex] = time;
     setReminderTimes(newTimes);
     setTimePickerVisible(false);
+    setIsWebTimePickerVisible(false);
   };
 
   const handleAddTime = () => {
@@ -287,7 +314,7 @@ export default function AddScreen() {
           <Text variant="titleLarge" style={styles.sectionTitle}>提醒设置</Text>
           <Button
             mode="outlined"
-            onPress={() => setDatePickerVisible(true)}
+            onPress={handleDatePress}
             style={styles.input}
             icon="calendar"
           >
@@ -298,14 +325,11 @@ export default function AddScreen() {
               <View key={index} style={styles.timeRow}>
                 <Button
                   mode="outlined"
-                  onPress={() => {
-                    setCurrentTimeIndex(index);
-                    setTimePickerVisible(true);
-                  }}
+                  onPress={() => handleTimePress(index)}
                   style={styles.timeButton}
                   icon="clock"
                 >
-                  时间 {index + 1}: {time.toLocaleTimeString()}
+                  时间 {index + 1}: {time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                 </Button>
                 <IconButton
                   icon="delete"
@@ -516,19 +540,39 @@ export default function AddScreen() {
             </Button>
           </View>
         </Modal>
-        <DateTimePickerModal
-          isVisible={isDatePickerVisible}
-          mode="date"
-          onConfirm={handleDateConfirm}
-          onCancel={() => setDatePickerVisible(false)}
-        />
-        <DateTimePickerModal
-          isVisible={isTimePickerVisible}
-          mode="time"
-          onConfirm={handleTimeConfirm}
-          onCancel={() => setTimePickerVisible(false)}
-          date={reminderTimes[currentTimeIndex] || new Date()}
-        />
+        {Platform.OS !== 'web' && (
+          <DateTimePickerModal
+            isVisible={isDatePickerVisible}
+            mode="date"
+            onConfirm={handleDateConfirm}
+            onCancel={() => setDatePickerVisible(false)}
+          />
+        )}
+        {Platform.OS === 'web' && (
+          <WebDatePicker
+            visible={isWebDatePickerVisible}
+            onClose={() => setIsWebDatePickerVisible(false)}
+            onConfirm={handleDateConfirm}
+            initialDate={reminderDate}
+          />
+        )}
+        {Platform.OS !== 'web' && (
+          <DateTimePickerModal
+            isVisible={isTimePickerVisible}
+            mode="time"
+            onConfirm={handleTimeConfirm}
+            onCancel={() => setTimePickerVisible(false)}
+            date={reminderTimes[currentTimeIndex] || new Date()}
+          />
+        )}
+        {Platform.OS === 'web' && (
+          <WebTimePicker
+            visible={isWebTimePickerVisible}
+            onClose={() => setIsWebTimePickerVisible(false)}
+            onConfirm={handleTimeConfirm}
+            initialTime={reminderTimes[currentTimeIndex] || new Date()}
+          />
+        )}
       </Portal>
       {/* 顶部提示条 */}
       {snackbarVisible && (
