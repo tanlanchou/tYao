@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Button, IconButton, Modal, Portal, Text } from 'react-native-paper';
 
@@ -61,14 +61,15 @@ const SimpleModalButton: React.FC<SimpleModalButtonProps> = ({ label = '提醒�
   };
 
   const handleBack = () => {
-    Alert.alert(
-      '确认返回',
-      '未保存的数据将丢失，是否确认返回？',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '确认', onPress: () => setMode('repeat') },
-      ]
-    );
+    setMode("repeat");
+    // Alert.alert(
+    //   '确认返回',
+    //   '未保存的数据将丢失，是否确认返回？',
+    //   [
+    //     { text: '取消', style: 'cancel' },
+    //     { text: '确认', onPress: () => setMode('repeat') },
+    //   ]
+    // );
   };
 
   return (
@@ -160,7 +161,7 @@ const SimpleModalButton: React.FC<SimpleModalButtonProps> = ({ label = '提醒�
         </Modal>
         <DateTimePickerModal
           isVisible={pickerVisible}
-          mode="time"
+          mode={mode === 'daily' ? 'time' : 'datetime'}
           onConfirm={mode === 'daily' ? handleDailyTimeConfirm : handleDateConfirm}
           onCancel={() => setPickerVisible(false)}
         />
