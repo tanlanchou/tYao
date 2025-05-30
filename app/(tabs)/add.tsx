@@ -139,8 +139,19 @@ export default function AddScreen() {
                       药量: {medicine.dosage}
                     </Chip>
                   )}
+                  <Chip icon="calendar" style={styles.chip} textStyle={styles.chipText}>
+                    {medicine.displayData.reminderDateText}
+                  </Chip>
+                </View>
+                <View style={styles.medicineInfoRow}>
                   <Chip icon="clock-outline" style={styles.chip} textStyle={styles.chipText}>
-                    {medicine.reminderDate.toLocaleString()}
+                    {medicine.displayData.reminderTimesText}
+                  </Chip>
+                </View>
+                <View style={styles.medicineInfoRow}>
+                  <Chip icon="repeat" style={styles.chip} textStyle={styles.chipText}>
+                    {medicine.displayData.repeatTypeText}
+                    {medicine.displayData.customDaysText ? `，${medicine.displayData.customDaysText}` : ''}
                   </Chip>
                 </View>
               </View>
@@ -283,19 +294,23 @@ const styles = StyleSheet.create({
   },
   medicineInfoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+    alignItems: 'flex-start',
+    marginTop: 8,
     flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
-    marginRight: 8,
     backgroundColor: '#e3f2fd',
     marginBottom: 4,
+    maxWidth: '100%',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   chipText: {
     color: '#1976d2',
     fontSize: 14,
+    flexWrap: 'wrap',
+    lineHeight: 20,
   },
   addButton: {
     marginTop: 8,

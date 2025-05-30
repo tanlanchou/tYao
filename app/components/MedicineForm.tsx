@@ -21,6 +21,13 @@ export interface MedicineData {
   repeatType?: 'single' | 'weekly' | 'monthly' | 'custom';
   customPeriod?: number;
   customDays?: number[];
+  displayData: {
+    reminderDateText: string;
+    reminderTimesText: string;
+    repeatTypeText: string;
+    customDaysText: string;
+    fullDisplayText: string;
+  };
 }
 
 export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit = false, showSnackbar }: MedicineFormProps) {
@@ -120,19 +127,70 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
   };
 
   const handleSubmit = () => {
+    // 检查药品名称
     if (!name.trim()) {
       showSnackbar('请输入药品名称', 'error');
       return;
     }
+
+    // 检查提醒日期
     if (!reminderDate) {
       showSnackbar('请选择提醒日期', 'error');
       return;
     }
+
+    // 检查时间
     if (reminderTimes.length === 0) {
       showSnackbar('请至少添加一个提醒时间', 'error');
       return;
     }
 
+    // 检查重复类型
+    if (!repeatType) {
+      showSnackbar('请选择重复类型', 'error');
+      return;
+    }
+
+    // 如果选择自定义重复周期，检查是否选择了天数
+    if (repeatType === 'custom') {
+      if (customPeriod === 0) {
+        showSnackbar('请输入自定义重复周期', 'error');
+        return;
+      }
+      if (customDays.length === 0) {
+        showSnackbar('请至少选择一天作为重复日期', 'error');
+        return;
+      }
+    }
+
+    // 格式化提醒时间
+    const formattedTimes = reminderTimes.map(time => {
+      const hours = time.getHours().toString().padStart(2, '0');
+      const minutes = time.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    });
+
+    // 格式化重复类型显示文本
+    let repeatTypeText = '';
+    let customDaysText = '';
+    
+    switch (repeatType) {
+      case 'single':
+        repeatTypeText = '单次提醒';
+        break;
+      case 'weekly':
+        repeatTypeText = '每周重复';
+        break;
+      case 'monthly':
+        repeatTypeText = '每月重复';
+        break;
+      case 'custom':
+        repeatTypeText = `自定义重复周期(${customPeriod}天)`;
+        customDaysText = `第 ${customDays.join(', ')} 天`;
+        break;
+    }
+
+    // 所有验证通过，提交表单
     onSubmit({
       name,
       image,
@@ -142,6 +200,27 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
       repeatType,
       customPeriod,
       customDays,
+      // 添加用于显示的格式化数据
+      displayData: {
+        // 日期格式化为 YYYY/MM/DD
+        reminderDateText: reminderDate.toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).replace(/\//g, '/'),
+        // 时间列表，每个时间格式化为 HH:MM
+        reminderTimesText: formattedTimes.join('、'),
+        // 重复类型文本
+        repeatTypeText,
+        // 自定义重复天数文本
+        customDaysText,
+        // 完整的显示文本
+        fullDisplayText: `${reminderDate.toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).replace(/\//g, '/')} ${formattedTimes.join('、')} ${repeatTypeText}${customDaysText ? `，${customDaysText}` : ''}`
+      }
     });
   };
 
@@ -182,6 +261,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
         value={name}
         onChangeText={setName}
         style={styles.input}
+        mode="outlined"
       />
       <View style={styles.imageSection}>
         <Text style={styles.label}>添加照片（可选）</Text>
@@ -189,6 +269,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           mode="outlined" 
           onPress={() => setImagePickerVisible(true)}
           style={styles.imageButton}
+          icon="camera"
         >
           选择图片
         </Button>
@@ -202,11 +283,13 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
         onChangeText={setDosage}
         keyboardType="numeric"
         style={styles.input}
+        mode="outlined"
       />
       <Button
         mode="outlined"
         onPress={() => setDatePickerVisible(true)}
         style={styles.input}
+        icon="calendar"
       >
         提醒日期: {reminderDate.toLocaleDateString()}
       </Button>
@@ -220,6 +303,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
                 setTimePickerVisible(true);
               }}
               style={styles.timeButton}
+              icon="clock"
             >
               时间 {index + 1}: {time.toLocaleTimeString()}
             </Button>
@@ -228,6 +312,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
               size={20}
               onPress={() => handleRemoveTime(index)}
               style={styles.deleteButton}
+              iconColor="#d32f2f"
             />
           </View>
         ))}
@@ -236,6 +321,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
             mode="outlined"
             onPress={handleAddTime}
             style={styles.addTimeButton}
+            icon="plus"
           >
             添加时间
           </Button>
@@ -245,6 +331,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
         mode="outlined"
         onPress={() => setRepeatModalVisible(true)}
         style={styles.input}
+        icon="repeat"
       >
         重复类型: {repeatType === 'single' ? '单次提醒' : repeatType === 'weekly' ? '每周重复' : repeatType === 'monthly' ? '每月重复' : '自定义重复周期'}
       </Button>
@@ -253,6 +340,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           mode="outlined"
           onPress={() => setCustomModalVisible(true)}
           style={styles.input}
+          icon="calendar-clock"
         >
           选择自定义重复周期
         </Button>
@@ -275,22 +363,23 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
             Platform.OS === 'android' && styles.androidModal
           ]}
         >
+          <Text style={styles.modalTitle}>选择图片</Text>
           <View style={styles.modalContent}>
             {Platform.OS === 'web' ? (
-              <Button mode="contained" onPress={handleFileUpload} style={styles.modalButton}>
+              <Button mode="contained" onPress={handleFileUpload} style={styles.modalButton} icon="file">
                 选择文件
               </Button>
             ) : (
               <>
-                <Button mode="contained" onPress={pickImage} style={styles.modalButton}>
+                <Button mode="contained" onPress={pickImage} style={styles.modalButton} icon="image">
                   从相册选择
                 </Button>
-                <Button mode="contained" onPress={takePhoto} style={styles.modalButton}>
+                <Button mode="contained" onPress={takePhoto} style={styles.modalButton} icon="camera">
                   拍照
                 </Button>
               </>
             )}
-            <Button mode="outlined" onPress={() => setImagePickerVisible(false)} style={styles.modalButton}>
+            <Button mode="outlined" onPress={() => setImagePickerVisible(false)} style={styles.modalButton} icon="close">
               取消
             </Button>
           </View>
@@ -308,21 +397,23 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           ]}
         >
           <Text style={styles.modalTitle}>请选择重复类型</Text>
-          <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('single')}>
-            单次提醒
-          </Button>
-          <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('weekly')}>
-            每周重复
-          </Button>
-          <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('monthly')}>
-            每月重复
-          </Button>
-          <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('custom')}>
-            自定义重复周期
-          </Button>
-          <Button mode="outlined" style={styles.modalButton} onPress={() => setRepeatModalVisible(false)}>
-            取消
-          </Button>
+          <View style={styles.modalContent}>
+            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('single')} icon="bell">
+              单次提醒
+            </Button>
+            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('weekly')} icon="calendar-week">
+              每周重复
+            </Button>
+            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('monthly')} icon="calendar-month">
+              每月重复
+            </Button>
+            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('custom')} icon="calendar-clock">
+              自定义重复周期
+            </Button>
+            <Button mode="outlined" style={styles.modalButton} onPress={() => setRepeatModalVisible(false)} icon="close">
+              取消
+            </Button>
+          </View>
         </Modal>
         <Modal
           visible={isCustomModalVisible}
@@ -337,32 +428,35 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           ]}
         >
           <Text style={styles.modalTitle}>自定义重复周期</Text>
-          <TextInput
-            label="周期（1-14天）"
-            value={customPeriod === 0 ? '' : customPeriod.toString()}
-            onChangeText={handleCustomPeriodChange}
-            keyboardType="numeric"
-            style={styles.input}
-            maxLength={2}
-            placeholder="请输入1-14之间的数字"
-          />
-          <View style={styles.checkboxContainer}>
-            {Array.from({ length: customPeriod }, (_, i) => i + 1).map(day => (
-              <View key={day} style={styles.checkboxItem}>
-                <Checkbox
-                  status={customDays.includes(day) ? 'checked' : 'unchecked'}
-                  onPress={() => handleCustomDayToggle(day)}
-                />
-                <Text>第 {day} 天</Text>
-              </View>
-            ))}
+          <View style={styles.modalContent}>
+            <TextInput
+              label="周期（1-14天）"
+              value={customPeriod === 0 ? '' : customPeriod.toString()}
+              onChangeText={handleCustomPeriodChange}
+              keyboardType="numeric"
+              style={styles.input}
+              maxLength={2}
+              placeholder="请输入1-14之间的数字"
+              mode="outlined"
+            />
+            <View style={styles.checkboxContainer}>
+              {Array.from({ length: customPeriod }, (_, i) => i + 1).map(day => (
+                <View key={day} style={styles.checkboxItem}>
+                  <Checkbox
+                    status={customDays.includes(day) ? 'checked' : 'unchecked'}
+                    onPress={() => handleCustomDayToggle(day)}
+                  />
+                  <Text>第 {day} 天</Text>
+                </View>
+              ))}
+            </View>
+            <Button mode="contained" style={styles.modalButton} onPress={() => setCustomModalVisible(false)} icon="check">
+              确定
+            </Button>
+            <Button mode="outlined" style={styles.modalButton} onPress={() => setCustomModalVisible(false)} icon="close">
+              取消
+            </Button>
           </View>
-          <Button mode="contained" style={styles.modalButton} onPress={() => setCustomModalVisible(false)}>
-            确定
-          </Button>
-          <Button mode="outlined" style={styles.modalButton} onPress={() => setCustomModalVisible(false)}>
-            取消
-          </Button>
         </Modal>
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
@@ -379,10 +473,10 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
         />
       </Portal>
       <View style={styles.buttonContainer}>
-        <Button mode="outlined" onPress={onCancel} style={styles.button}>
+        <Button mode="outlined" onPress={onCancel} style={styles.button} icon="close">
           取消
         </Button>
-        <Button mode="contained" onPress={handleSubmit} style={styles.button}>
+        <Button mode="contained" onPress={handleSubmit} style={styles.button} icon="check">
           {isEdit ? '保存' : '确认'}
         </Button>
       </View>
@@ -392,51 +486,64 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: 20,
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 5,
     paddingBottom: 80,
   },
   editTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1976d2',
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: 'center',
   },
   input: {
     marginBottom: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
   },
   imageSection: {
-    marginBottom: 16,
+    marginBottom: 20,
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 8,
   },
   label: {
-    marginBottom: 8,
+    marginBottom: 12,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
   },
   imageButton: {
-    marginBottom: 8,
+    marginBottom: 12,
+    borderColor: '#1976d2',
+    borderWidth: 1,
   },
   previewImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
+    borderRadius: 12,
+    marginTop: 12,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: 24,
+    gap: 12,
   },
   button: {
     flex: 1,
-    marginHorizontal: 4,
+    borderRadius: 8,
+    paddingVertical: 8,
   },
   modal: {
     margin: 0,
@@ -451,61 +558,89 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: 'white',
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    padding: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   androidModalContainer: {
     margin: 0,
-    paddingBottom: Platform.OS === 'android' ? 20 : 0,
+    paddingBottom: Platform.OS === 'android' ? 24 : 0,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
   },
   modalContent: {
-    gap: 10,
+    gap: 12,
   },
   modalButton: {
-    marginVertical: 4,
+    marginVertical: 6,
+    borderRadius: 8,
+    paddingVertical: 8,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: 'center',
+    color: '#1976d2',
   },
   selectedDateText: {
-    marginTop: 8,
+    marginTop: 12,
     color: '#1976d2',
     fontSize: 16,
     fontWeight: '500',
+    backgroundColor: '#e3f2fd',
+    padding: 12,
+    borderRadius: 8,
   },
   checkboxContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 8,
   },
   checkboxItem: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '50%',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   timesContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 8,
   },
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    gap: 8,
   },
   timeButton: {
     flex: 1,
+    backgroundColor: '#fff',
+    borderColor: '#1976d2',
+    borderWidth: 1,
   },
   deleteButton: {
+    backgroundColor: '#ffebee',
     marginLeft: 8,
   },
   addTimeButton: {
-    marginTop: 8,
+    marginTop: 12,
+    backgroundColor: '#e3f2fd',
+    borderColor: '#1976d2',
+    borderWidth: 1,
   },
 }); 
