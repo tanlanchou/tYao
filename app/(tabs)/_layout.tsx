@@ -1,10 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 export default function TabLayout() {
   const theme = useTheme();
+
+  const handleAddPress = () => {
+    // 清除 URL 参数并导航到添加页面
+    router.replace('/add');
+  };
 
   return (
     <Tabs
@@ -16,11 +21,16 @@ export default function TabLayout() {
           height: 60,
           position: 'relative',
         },
+        headerStyle: {
+          backgroundColor: theme.colors.surface,
+        },
+        headerTintColor: theme.colors.onSurface,
+        headerTitleAlign: 'center',
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: '首页',
+          title: '服药闹钟',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="home" size={size} color={color} />
           ),
@@ -41,6 +51,29 @@ export default function TabLayout() {
               </View>
             </View>
           ),
+          headerLeft: () => (
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={28}
+              color={theme.colors.onSurface}
+              style={{ marginLeft: 12 }}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/');
+                }
+              }}
+            />
+          ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            // 阻止默认行为
+            e.preventDefault();
+            // 使用自定义处理函数
+            handleAddPress();
+          },
         }}
       />
       <Tabs.Screen
@@ -55,6 +88,7 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
 const styles = StyleSheet.create({
   addButtonContainer: {
     position: 'absolute',
