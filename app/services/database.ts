@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 存储键
 const ALARMS_KEY = '@medicine_reminder_alarms';
@@ -10,27 +10,11 @@ interface Storage {
   setItem: (key: string, value: string) => Promise<void>;
 }
 
-// 创建存储适配器
-const createStorage = (): Storage => {
-  if (Platform.OS === 'web') {
-    return {
-      getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
-      setItem: (key: string, value: string) => Promise.resolve(localStorage.setItem(key, value))
-    };
-  } else {
-    // 对于非 Web 平台，使用内存存储
-    const memoryStorage = new Map<string, string>();
-    return {
-      getItem: (key: string) => Promise.resolve(memoryStorage.get(key) || null),
-      setItem: (key: string, value: string) => {
-        memoryStorage.set(key, value);
-        return Promise.resolve();
-      }
-    };
-  }
+// 统一用 AsyncStorage 持久化
+const storage: Storage = {
+  getItem: (key: string) => AsyncStorage.getItem(key),
+  setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
 };
-
-const storage = createStorage();
 
 // 初始化数据库
 export const initDatabase = async () => {
@@ -62,6 +46,7 @@ export const saveAlarmWithMedicines = async (
   repeatType: string,
   customPeriod: number | null,
   customDays: number[] | null,
+  notification_ids: string[],
   medicines: Array<{
     name: string;
     image?: string;
@@ -84,6 +69,7 @@ export const saveAlarmWithMedicines = async (
       repeat_type: repeatType,
       custom_period: customPeriod,
       custom_days: customDays ? JSON.stringify(customDays) : null,
+      notification_ids: JSON.stringify(notification_ids),
       created_at: new Date().toISOString()
     };
 
@@ -127,6 +113,7 @@ export const getAllAlarms = async () => {
         ...alarm,
         reminder_times: JSON.parse(alarm.reminder_times),
         custom_days: alarm.custom_days ? JSON.parse(alarm.custom_days) : null,
+        notification_ids: JSON.parse(alarm.notification_ids || '[]'),
         medicines: alarmMedicines.map((medicine: any) => ({
           id: medicine.id,
           name: medicine.name,
@@ -175,6 +162,7 @@ export const updateAlarmWithMedicines = async (
   repeatType: string,
   customPeriod: number | null,
   customDays: number[] | null,
+  notification_ids: string[],
   medicines: Array<{
     id?: number;
     name: string;
@@ -198,7 +186,8 @@ export const updateAlarmWithMedicines = async (
         reminder_times: JSON.stringify(reminderTimes.map(time => time.toISOString())),
         repeat_type: repeatType,
         custom_period: customPeriod,
-        custom_days: customDays ? JSON.stringify(customDays) : null
+        custom_days: customDays ? JSON.stringify(customDays) : null,
+        notification_ids: JSON.stringify(notification_ids)
       };
       await storage.setItem(ALARMS_KEY, JSON.stringify(alarms));
     }

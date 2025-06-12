@@ -1,34 +1,39 @@
-import { useNavigation } from '@react-navigation/native';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { Button, Checkbox, Chip, Dialog, IconButton, Modal, Portal, Text, TextInput, useTheme } from 'react-native-paper';
-import MedicineForm, { MedicineData } from '../components/MedicineForm';
-import { WebDatePicker, WebTimePicker } from '../components/WebPickers';
-import { getAllAlarms, initDatabase, saveAlarmWithMedicines, updateAlarmWithMedicines } from '../services/database';
-
-interface Alarm {
-  id: number;
-  name: string;
-  reminder_date: string;
-  reminder_times: string[];
-  repeat_type: string;
-  custom_period: number | null;
-  custom_days: number[] | null;
-  created_at: string;
-  medicines: Array<{
-    id: number;
-    name: string;
-    image?: string;
-    dosage?: string;
-  }>;
-}
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Image, Platform, ScrollView, StyleSheet, View } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
+import {
+    Button,
+    Checkbox,
+    Chip,
+    Dialog,
+    IconButton,
+    Modal,
+    Portal,
+    Text,
+    TextInput,
+    useTheme,
+} from "react-native-paper";
+import MedicineForm, { MedicineData } from "../components/MedicineForm";
+import { WebDatePicker, WebTimePicker } from "../components/WebPickers";
+import {
+    getAllAlarms,
+    initDatabase,
+    saveAlarmWithMedicines,
+    updateAlarmWithMedicines,
+} from "../services/database";
+import {
+    cancelAlarmNotifications,
+    requestNotificationPermissions,
+    scheduleAlarmNotifications,
+} from "../services/notifications";
+import { Alarm, CombinedData } from "../types";
 
 interface ReminderData {
   reminderDate: Date;
   reminderTimes: Date[];
-  repeatType: 'single' | 'weekly' | 'monthly' | 'custom';
+  repeatType: "single" | "weekly" | "monthly" | "custom";
   customPeriod?: number;
   customDays?: number[];
   displayData: {
@@ -40,25 +45,22 @@ interface ReminderData {
   };
 }
 
-interface CombinedData extends MedicineData {
-  id?: number;
-  reminder: ReminderData;
-}
-
 export default function AddScreen() {
   const { id } = useLocalSearchParams();
   const isEditMode = !!id;
   const navigation = useNavigation();
   const [alarm, setAlarm] = useState<Alarm | null>(null);
   const [loading, setLoading] = useState(isEditMode);
-  const [alarmName, setAlarmName] = useState('');
+  const [alarmName, setAlarmName] = useState("");
   const [medicines, setMedicines] = useState<CombinedData[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarType, setSnackbarType] = useState<'error' | 'warning' | 'success' | 'info'>('info');
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarType, setSnackbarType] = useState<
+    "error" | "warning" | "success" | "info"
+  >("info");
 
   // 时间提醒相关状态
   const [reminderDate, setReminderDate] = useState(new Date());
@@ -68,9 +70,11 @@ export default function AddScreen() {
   const [currentTimeIndex, setCurrentTimeIndex] = useState<number>(0);
   const [isRepeatModalVisible, setRepeatModalVisible] = useState(false);
   const [isCustomModalVisible, setCustomModalVisible] = useState(false);
-  const [repeatType, setRepeatType] = useState<ReminderData['repeatType']>('single');
+  const [repeatType, setRepeatType] =
+    useState<"single" | "weekly" | "monthly" | "custom" | "hourly">("single");
   const [customPeriod, setCustomPeriod] = useState<number>(7);
   const [customDays, setCustomDays] = useState<number[]>([]);
+  const [hourlyInterval, setHourlyInterval] = useState<number>(1);
 
   // 添加 Web 时间选择器状态
   const [isWebTimePickerVisible, setIsWebTimePickerVisible] = useState(false);
@@ -83,8 +87,8 @@ export default function AddScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: isEditMode ? '编辑药品' : '添加闹钟',
-      headerTitleAlign: 'center',
+      title: isEditMode ? "编辑药品" : "添加闹钟",
+      headerTitleAlign: "center",
     });
   }, [navigation, isEditMode]);
 
@@ -97,18 +101,18 @@ export default function AddScreen() {
 
   // 初始化数据库
   useEffect(() => {
-    initDatabase().catch(error => {
-      console.error('Failed to initialize database:', error);
-      showSnackbar('数据库初始化失败', 'error');
+    initDatabase().catch((error) => {
+      console.error("Failed to initialize database:", error);
+      showSnackbar("数据库初始化失败", "error");
     });
   }, []);
 
   // 清空所有数据的函数
   const resetForm = () => {
-    setAlarmName('');
+    setAlarmName("");
     setReminderDate(new Date());
     setReminderTimes([]);
-    setRepeatType('single');
+    setRepeatType("single");
     setCustomPeriod(7);
     setCustomDays([]);
     setMedicines([]);
@@ -128,210 +132,291 @@ export default function AddScreen() {
 
   const loadAlarm = async () => {
     try {
-      const alarms = await getAllAlarms() as Alarm[];
-      const foundAlarm = alarms.find(a => a.id === Number(id));
+      const alarms = (await getAllAlarms()) as Alarm[];
+      const foundAlarm = alarms.find((a) => a.id === Number(id));
       if (foundAlarm) {
         setAlarm(foundAlarm);
         setAlarmName(foundAlarm.name);
         setReminderDate(new Date(foundAlarm.reminder_date));
-        setReminderTimes(foundAlarm.reminder_times.map(time => new Date(time)));
-        setRepeatType(foundAlarm.repeat_type as 'single' | 'weekly' | 'monthly' | 'custom');
+        setReminderTimes(
+          foundAlarm.reminder_times.map((time) => new Date(time))
+        );
+        setRepeatType(
+          foundAlarm.repeat_type as "single" | "weekly" | "monthly" | "custom" | "hourly"
+        );
         setCustomPeriod(foundAlarm.custom_period || 7);
         setCustomDays(foundAlarm.custom_days || []);
-        setMedicines(foundAlarm.medicines.map(medicine => ({
-          ...medicine,
-          reminder: {
-            reminderDate: new Date(foundAlarm.reminder_date),
-            reminderTimes: foundAlarm.reminder_times.map(time => new Date(time)),
-            repeatType: foundAlarm.repeat_type as 'single' | 'weekly' | 'monthly' | 'custom',
-            customPeriod: foundAlarm.custom_period || 7,
-            customDays: foundAlarm.custom_days || [],
-            displayData: {
-              reminderDateText: new Date(foundAlarm.reminder_date).toLocaleDateString('zh-CN', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
-              }).replace(/\//g, '/'),
-              reminderTimesText: foundAlarm.reminder_times.map(time => {
-                const date = new Date(time);
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
-                return `${hours}:${minutes}`;
-              }).join('、'),
-              repeatTypeText: foundAlarm.repeat_type === 'single' ? '单次提醒' : 
-                             foundAlarm.repeat_type === 'weekly' ? '每周重复' : 
-                             foundAlarm.repeat_type === 'monthly' ? '每月重复' : 
-                             `自定义重复周期(${foundAlarm.custom_period}天)`,
-              customDaysText: foundAlarm.repeat_type === 'custom' ? `第 ${foundAlarm.custom_days?.join(', ')} 天` : '',
-              fullDisplayText: ''
-            }
-          }
-        })));
+        setMedicines(
+          foundAlarm.medicines.map((medicine) => ({
+            ...medicine,
+            reminder: {
+              reminderDate: new Date(foundAlarm.reminder_date),
+              reminderTimes: foundAlarm.reminder_times.map(
+                (time) => new Date(time)
+              ),
+              repeatType: foundAlarm.repeat_type as
+                | "single"
+                | "weekly"
+                | "monthly"
+                | "custom"
+                | "hourly",
+              customPeriod: foundAlarm.custom_period || 7,
+              customDays: foundAlarm.custom_days || [],
+              displayData: {
+                reminderDateText: new Date(foundAlarm.reminder_date)
+                  .toLocaleDateString("zh-CN", {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                  })
+                  .replace(/\//g, "/"),
+                reminderTimesText: foundAlarm.reminder_times
+                  .map((time) => {
+                    const date = new Date(time);
+                    const hours = date.getHours().toString().padStart(2, "0");
+                    const minutes = date
+                      .getMinutes()
+                      .toString()
+                      .padStart(2, "0");
+                    return `${hours}:${minutes}`;
+                  })
+                  .join("、"),
+                repeatTypeText:
+                  foundAlarm.repeat_type === "single"
+                    ? "单次提醒"
+                    : foundAlarm.repeat_type === "weekly"
+                    ? "每周重复"
+                    : foundAlarm.repeat_type === "monthly"
+                    ? "每月重复"
+                    : foundAlarm.repeat_type === "hourly"
+                    ? `每${foundAlarm.custom_period}小时重复`
+                    : `自定义重复周期(${foundAlarm.custom_period}天)`,
+                customDaysText:
+                  foundAlarm.repeat_type === "custom"
+                    ? `第 ${foundAlarm.custom_days?.join(", ")} 天`
+                    : "",
+                fullDisplayText: "",
+              },
+            },
+          }))
+        );
       } else {
-        console.error('Alarm not found');
+        console.error("Alarm not found");
         router.back();
       }
     } catch (error) {
-      console.error('Failed to load alarm:', error);
-      showSnackbar('加载闹钟数据失败', 'error');
+      console.error("Failed to load alarm:", error);
+      showSnackbar("加载闹钟数据失败", "error");
     } finally {
       setLoading(false);
     }
   };
 
   // 统一弹出提示
-  const showSnackbar = (message: string, type: 'error' | 'warning' | 'success' | 'info' = 'info') => {
+  const showSnackbar = (
+    message: string,
+    type: "error" | "warning" | "success" | "info" = "info"
+  ) => {
     setSnackbarMessage(message);
     setSnackbarType(type);
     setSnackbarVisible(true);
   };
 
   const handleSaveAlarm = async () => {
-    // 检查闹钟名称
-    if (!alarmName.trim()) {
-      showSnackbar('请输入闹钟名称', 'error');
-      return;
-    }
-
-    // 检查提醒日期
-    if (!reminderDate) {
-      showSnackbar('请选择提醒日期', 'error');
-      return;
-    }
-
-    // 检查时间
-    if (reminderTimes.length === 0) {
-      showSnackbar('请至少添加一个提醒时间', 'error');
-      return;
-    }
-
-    // 检查重复类型
-    if (!repeatType) {
-      showSnackbar('请选择重复类型', 'error');
-      return;
-    }
-
-    // 如果选择自定义重复周期，检查是否选择了天数
-    if (repeatType === 'custom') {
-      if (customPeriod === 0) {
-        showSnackbar('请输入自定义重复周期', 'error');
-        return;
-      }
-      if (customDays.length === 0) {
-        showSnackbar('请至少选择一天作为重复日期', 'error');
-        return;
-      }
-    }
-
     try {
+      // 检查闹钟名称
+      if (!alarmName.trim()) {
+        showSnackbar("请输入闹钟名称", "error");
+        return;
+      }
+
+      // 检查提醒日期
+      if (!(reminderDate instanceof Date) || isNaN(reminderDate.getTime())) {
+        showSnackbar("请选择有效的提醒日期", "error");
+        return;
+      }
+
+      // 检查时间
+      if (reminderTimes.length === 0) {
+        showSnackbar("请至少添加一个提醒时间", "error");
+        return;
+      }
+
+      // 检查重复类型
+      if (!repeatType) {
+        showSnackbar("请选择重复类型", "error");
+        return;
+      }
+
+      // 检查自定义重复
+      if (
+        repeatType === "custom" &&
+        (!customPeriod || customDays.length === 0)
+      ) {
+        showSnackbar("请设置自定义重复周期和天数", "error");
+        return;
+      }
+
+      // 检查药品
+      if (medicines.length === 0) {
+        showSnackbar("请至少添加一个药品", "error");
+        return;
+      }
+
+      // 请求通知权限
+      await requestNotificationPermissions();
+
+      const alarmId = isEditMode ? Number(id) : 0;
+
       if (isEditMode) {
+        // 先取消旧的通知
+        await cancelAlarmNotifications(alarmId);
+      }
+      // 新建和编辑都要调度新通知
+      const notificationIds = await scheduleAlarmNotifications(
+        alarmId,
+        alarmName,
+        reminderDate,
+        reminderTimes,
+        repeatType,
+        customPeriod,
+        customDays,
+        medicines
+      );
+
+      if (isEditMode) {
+        // 更新闹钟
         await updateAlarmWithMedicines(
-          Number(id),
+          alarmId,
           alarmName,
           reminderDate,
           reminderTimes,
           repeatType,
-          repeatType === 'custom' ? customPeriod : null,
-          repeatType === 'custom' ? customDays : null,
-          medicines.map(medicine => ({
-            id: medicine.id,
-            name: medicine.name,
-            image: medicine.image,
-            dosage: medicine.dosage
-          }))
+          customPeriod,
+          customDays,
+          notificationIds,
+          medicines
         );
         showSnackbar('闹钟更新成功', 'success');
-        // 跳转到首页并刷新列表
-        router.replace({
-          pathname: '/',
-          params: { refresh: Date.now() }
-        });
       } else {
-        await saveAlarmWithMedicines(
+        // 添加新闹钟
+        const newAlarmId = await saveAlarmWithMedicines(
           alarmName,
           reminderDate,
           reminderTimes,
           repeatType,
-          repeatType === 'custom' ? customPeriod : null,
-          repeatType === 'custom' ? customDays : null,
-          medicines.map(medicine => ({
-            name: medicine.name,
-            image: medicine.image,
-            dosage: medicine.dosage
-          }))
+          customPeriod,
+          customDays,
+          notificationIds,
+          medicines
         );
-
-        showSnackbar('闹钟保存成功', 'success');
-        // 跳转到首页并刷新列表
-        router.replace({
-          pathname: '/',
-          params: { refresh: Date.now() }
-        });
+        showSnackbar('闹钟添加成功', 'success');
       }
+
+      // 返回首页并刷新
+      router.replace({
+        pathname: "/",
+        params: { refresh: Date.now() },
+      });
     } catch (error) {
-      console.error('Failed to save alarm:', error);
-      showSnackbar(isEditMode ? '更新失败，请重试' : '保存失败，请重试', 'error');
+      console.error("Failed to save alarm:", error);
+      showSnackbar(
+        error instanceof Error ? error.message : "保存失败",
+        "error"
+      );
     }
   };
 
   const handleAddMedicine = (data: MedicineData) => {
     if (editingIndex !== null) {
       const newMedicines = [...medicines];
-      newMedicines[editingIndex] = { ...data, id: medicines[editingIndex].id, reminder: {
-        reminderDate,
-        reminderTimes,
-        repeatType,
-        customPeriod,
-        customDays,
-        displayData: {
-          reminderDateText: reminderDate.toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).replace(/\//g, '/'),
-          reminderTimesText: reminderTimes.map(time => {
-            const hours = time.getHours().toString().padStart(2, '0');
-            const minutes = time.getMinutes().toString().padStart(2, '0');
-            return `${hours}:${minutes}`;
-          }).join('、'),
-          repeatTypeText: repeatType === 'single' ? '单次提醒' : 
-                         repeatType === 'weekly' ? '每周重复' : 
-                         repeatType === 'monthly' ? '每月重复' : 
-                         `自定义重复周期(${customPeriod}天)`,
-          customDaysText: repeatType === 'custom' ? `第 ${customDays.join(', ')} 天` : '',
-          fullDisplayText: ''
-        }
-      }};
+      newMedicines[editingIndex] = {
+        ...data,
+        id: medicines[editingIndex].id,
+        reminder: {
+          reminderDate,
+          reminderTimes,
+          repeatType,
+          customPeriod,
+          customDays,
+          displayData: {
+            reminderDateText: reminderDate
+              .toLocaleDateString("zh-CN", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+              })
+              .replace(/\//g, "/"),
+            reminderTimesText: reminderTimes
+              .map((time) => {
+                const hours = time.getHours().toString().padStart(2, "0");
+                const minutes = time.getMinutes().toString().padStart(2, "0");
+                return `${hours}:${minutes}`;
+              })
+              .join("、"),
+            repeatTypeText:
+              repeatType === "single"
+                ? "单次提醒"
+                : repeatType === "weekly"
+                ? "每周重复"
+                : repeatType === "monthly"
+                ? "每月重复"
+                : repeatType === "hourly"
+                ? `每${hourlyInterval}小时重复`
+                : `自定义重复周期(${customPeriod}天)`,
+            customDaysText:
+              repeatType === "custom" ? `第 ${customDays.join(", ")} 天` : "",
+            fullDisplayText: "",
+          },
+        },
+      };
       setMedicines(newMedicines);
       setEditingIndex(null);
-      showSnackbar('编辑成功', 'success');
+      showSnackbar("编辑成功", "success");
     } else {
-      setMedicines([...medicines, { ...data, reminder: {
-        reminderDate,
-        reminderTimes,
-        repeatType,
-        customPeriod,
-        customDays,
-        displayData: {
-          reminderDateText: reminderDate.toLocaleDateString('zh-CN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).replace(/\//g, '/'),
-          reminderTimesText: reminderTimes.map(time => {
-            const hours = time.getHours().toString().padStart(2, '0');
-            const minutes = time.getMinutes().toString().padStart(2, '0');
-            return `${hours}:${minutes}`;
-          }).join('、'),
-          repeatTypeText: repeatType === 'single' ? '单次提醒' : 
-                         repeatType === 'weekly' ? '每周重复' : 
-                         repeatType === 'monthly' ? '每月重复' : 
-                         `自定义重复周期(${customPeriod}天)`,
-          customDaysText: repeatType === 'custom' ? `第 ${customDays.join(', ')} 天` : '',
-          fullDisplayText: ''
-        }
-      }}]);
-      showSnackbar('添加成功', 'success');
+      setMedicines([
+        ...medicines,
+        {
+          ...data,
+          reminder: {
+            reminderDate,
+            reminderTimes,
+            repeatType,
+            customPeriod,
+            customDays,
+            displayData: {
+              reminderDateText: reminderDate
+                .toLocaleDateString("zh-CN", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                })
+                .replace(/\//g, "/"),
+              reminderTimesText: reminderTimes
+                .map((time) => {
+                  const hours = time.getHours().toString().padStart(2, "0");
+                  const minutes = time.getMinutes().toString().padStart(2, "0");
+                  return `${hours}:${minutes}`;
+                })
+                .join("、"),
+              repeatTypeText:
+                repeatType === "single"
+                  ? "单次提醒"
+                  : repeatType === "weekly"
+                  ? "每周重复"
+                  : repeatType === "monthly"
+                  ? "每月重复"
+                  : repeatType === "hourly"
+                  ? `每${hourlyInterval}小时重复`
+                  : `自定义重复周期(${customPeriod}天)`,
+              customDaysText:
+                repeatType === "custom" ? `第 ${customDays.join(", ")} 天` : "",
+              fullDisplayText: "",
+            },
+          },
+        },
+      ]);
+      showSnackbar("添加成功", "success");
     }
     setIsAdding(false);
   };
@@ -343,7 +428,7 @@ export default function AddScreen() {
 
   const handleEditMedicine = (index: number) => {
     if (isAdding) {
-      showSnackbar('请先保存或取消当前操作', 'warning');
+      showSnackbar("请先保存或取消当前操作", "warning");
       return;
     }
     setEditingIndex(index);
@@ -353,7 +438,7 @@ export default function AddScreen() {
 
   const handleRequestDeleteMedicine = (index: number) => {
     if (isAdding) {
-      showSnackbar('请先保存或取消当前操作', 'warning');
+      showSnackbar("请先保存或取消当前操作", "warning");
       return;
     }
     setDeleteIndex(index);
@@ -363,7 +448,7 @@ export default function AddScreen() {
     if (deleteIndex !== null) {
       setMedicines(medicines.filter((_, i) => i !== deleteIndex));
       setDeleteIndex(null);
-      showSnackbar('删除成功', 'success');
+      showSnackbar("删除成功", "success");
     }
   };
 
@@ -378,7 +463,7 @@ export default function AddScreen() {
 
   // 修改日期选择处理函数
   const handleDatePress = () => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       setIsWebDatePickerVisible(true);
     } else {
       setDatePickerVisible(true);
@@ -394,7 +479,7 @@ export default function AddScreen() {
   // 修改时间选择处理函数
   const handleTimePress = (index: number) => {
     setCurrentTimeIndex(index);
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       setIsWebTimePickerVisible(true);
     } else {
       setTimePickerVisible(true);
@@ -413,7 +498,7 @@ export default function AddScreen() {
     if (reminderTimes.length < 6) {
       setReminderTimes([...reminderTimes, new Date()]);
     } else {
-      showSnackbar('最多只能添加6个时间', 'warning');
+      showSnackbar("最多只能添加6个时间", "warning");
     }
   };
 
@@ -422,35 +507,35 @@ export default function AddScreen() {
       const newTimes = reminderTimes.filter((_, i) => i !== index);
       setReminderTimes(newTimes);
     } else {
-      showSnackbar('至少需要保留一个时间', 'warning');
+      showSnackbar("至少需要保留一个时间", "warning");
     }
   };
 
-  const handleRepeatTypeSelect = (type: ReminderData['repeatType']) => {
+  const handleRepeatTypeSelect = (type: "single" | "weekly" | "monthly" | "custom" | "hourly") => {
     setRepeatType(type);
     setRepeatModalVisible(false);
-    if (type === 'custom') {
+    if (type === "custom") {
       setCustomModalVisible(true);
     }
   };
 
   const handleCustomPeriodChange = (text: string) => {
-    if (text === '') {
+    if (text === "") {
       setCustomPeriod(0);
       setCustomDays([]);
       return;
     }
-    
+
     const period = parseInt(text, 10);
     if (!isNaN(period) && period >= 1 && period <= 14) {
       setCustomPeriod(period);
-      setCustomDays(customDays.filter(day => day <= period));
+      setCustomDays(customDays.filter((day) => day <= period));
     }
   };
 
   const handleCustomDayToggle = (day: number) => {
     if (customDays.includes(day)) {
-      setCustomDays(customDays.filter(d => d !== day));
+      setCustomDays(customDays.filter((d) => d !== day));
     } else {
       setCustomDays([...customDays, day].sort((a, b) => a - b));
     }
@@ -463,6 +548,22 @@ export default function AddScreen() {
     }, 100);
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!isEditMode) {
+        resetForm();
+      }
+    }, [isEditMode])
+  );
+
+  // 在 handleRepeatTypeSelect 函数后添加
+  const handleHourlyIntervalChange = (value: string) => {
+    const interval = parseInt(value);
+    if (!isNaN(interval) && interval > 0) {
+      setHourlyInterval(interval);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -473,10 +574,7 @@ export default function AddScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.scrollView}
-      >
+      <ScrollView ref={scrollViewRef} style={styles.scrollView}>
         <TextInput
           label="闹钟名称"
           value={alarmName}
@@ -486,7 +584,9 @@ export default function AddScreen() {
         />
 
         <View style={styles.reminderSection}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>提醒设置</Text>
+          <Text variant="titleLarge" style={styles.sectionTitle}>
+            提醒设置
+          </Text>
           <Button
             mode="outlined"
             onPress={handleDatePress}
@@ -504,7 +604,11 @@ export default function AddScreen() {
                   style={styles.timeButton}
                   icon="clock"
                 >
-                  时间 {index + 1}: {time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                  时间 {index + 1}:{" "}
+                  {time.toLocaleTimeString("zh-CN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </Button>
                 <IconButton
                   icon="delete"
@@ -532,9 +636,29 @@ export default function AddScreen() {
             style={styles.input}
             icon="repeat"
           >
-            重复类型: {repeatType === 'single' ? '单次提醒' : repeatType === 'weekly' ? '每周重复' : repeatType === 'monthly' ? '每月重复' : '自定义重复周期'}
+            重复类型:{" "}
+            {repeatType === "single"
+              ? "单次提醒"
+              : repeatType === "weekly"
+              ? "每周重复"
+              : repeatType === "monthly"
+              ? "每月重复"
+              : repeatType === "hourly"
+              ? `每${hourlyInterval}小时重复`
+              : "自定义重复周期"}
           </Button>
-          {repeatType === 'custom' && (
+          {repeatType === "hourly" && (
+            <View style={styles.hourlyInputContainer}>
+              <TextInput
+                label="重复间隔（小时）"
+                value={hourlyInterval.toString()}
+                onChangeText={handleHourlyIntervalChange}
+                keyboardType="numeric"
+                style={styles.hourlyInput}
+              />
+            </View>
+          )}
+          {repeatType === "custom" && (
             <Button
               mode="outlined"
               onPress={() => setCustomModalVisible(true)}
@@ -544,15 +668,17 @@ export default function AddScreen() {
               选择自定义重复周期
             </Button>
           )}
-          {repeatType === 'custom' && customDays.length > 0 && (
+          {repeatType === "custom" && customDays.length > 0 && (
             <Text style={styles.selectedDateText}>
-              自定义重复周期: {customPeriod}天，第 {customDays.join(', ')} 天
+              自定义重复周期: {customPeriod}天，第 {customDays.join(", ")} 天
             </Text>
           )}
         </View>
 
         <View style={styles.medicineList}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>药品列表</Text>
+          <Text variant="titleLarge" style={styles.sectionTitle}>
+            药品列表
+          </Text>
           {medicines.length === 0 ? (
             <View style={styles.emptyList}>
               <Text style={styles.emptyText}>暂无记录</Text>
@@ -561,7 +687,9 @@ export default function AddScreen() {
             medicines.map((medicine, index) => (
               <View key={index} style={styles.medicineCard}>
                 <View style={styles.medicineHeader}>
-                  <Text variant="titleMedium" style={styles.medicineName}>{medicine.name}</Text>
+                  <Text variant="titleMedium" style={styles.medicineName}>
+                    {medicine.name}
+                  </Text>
                   <View style={styles.iconButtonGroup}>
                     <IconButton
                       icon="pencil"
@@ -582,11 +710,18 @@ export default function AddScreen() {
                   </View>
                 </View>
                 {medicine.image && (
-                  <Image source={{ uri: medicine.image }} style={styles.medicineImage} />
+                  <Image
+                    source={{ uri: medicine.image }}
+                    style={styles.medicineImage}
+                  />
                 )}
                 {medicine.dosage && (
                   <View style={styles.medicineInfoRow}>
-                    <Chip icon="pill" style={styles.chip} textStyle={styles.chipText}>
+                    <Chip
+                      icon="pill"
+                      style={styles.chip}
+                      textStyle={styles.chipText}
+                    >
                       药量: {medicine.dosage}
                     </Chip>
                   </View>
@@ -600,7 +735,9 @@ export default function AddScreen() {
           <MedicineForm
             onSubmit={handleAddMedicine}
             onCancel={handleCancel}
-            initialData={editingIndex !== null ? medicines[editingIndex] : undefined}
+            initialData={
+              editingIndex !== null ? medicines[editingIndex] : undefined
+            }
             isEdit={editingIndex !== null}
             showSnackbar={showSnackbar}
           />
@@ -615,13 +752,13 @@ export default function AddScreen() {
               添加药品
             </Button>
             {medicines.length > 0 && (
-              <Button 
-                mode="contained" 
+              <Button
+                mode="contained"
                 icon="content-save"
                 style={styles.saveButton}
                 onPress={handleSaveAlarm}
               >
-                {isEditMode ? '保存修改' : '保存闹钟'}
+                {isEditMode ? "保存修改" : "保存闹钟"}
               </Button>
             )}
           </>
@@ -639,7 +776,12 @@ export default function AddScreen() {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={handleCancelDeleteMedicine}>取消</Button>
-            <Button onPress={handleConfirmDeleteMedicine} textColor={theme.colors.error}>删除</Button>
+            <Button
+              onPress={handleConfirmDeleteMedicine}
+              textColor={theme.colors.error}
+            >
+              删除
+            </Button>
           </Dialog.Actions>
         </Dialog>
         <Modal
@@ -647,28 +789,61 @@ export default function AddScreen() {
           onDismiss={() => setRepeatModalVisible(false)}
           contentContainerStyle={[
             styles.modalContainer,
-            Platform.OS === 'android' && styles.androidModalContainer
+            Platform.OS === "android" && styles.androidModalContainer,
           ]}
           style={[
             styles.modal,
-            Platform.OS === 'android' && styles.androidModal
+            Platform.OS === "android" && styles.androidModal,
           ]}
         >
           <Text style={styles.modalTitle}>请选择重复类型</Text>
           <View style={styles.modalContent}>
-            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('single')} icon="bell">
+            <Button
+              mode="contained"
+              style={styles.modalButton}
+              onPress={() => handleRepeatTypeSelect("single")}
+              icon="bell"
+            >
               单次提醒
             </Button>
-            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('weekly')} icon="calendar-week">
+            <Button
+              mode="contained"
+              style={styles.modalButton}
+              onPress={() => handleRepeatTypeSelect("hourly")}
+              icon="clock-outline"
+            >
+              每隔几小时
+            </Button>
+            <Button
+              mode="contained"
+              style={styles.modalButton}
+              onPress={() => handleRepeatTypeSelect("weekly")}
+              icon="calendar-week"
+            >
               每周重复
             </Button>
-            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('monthly')} icon="calendar-month">
+            <Button
+              mode="contained"
+              style={styles.modalButton}
+              onPress={() => handleRepeatTypeSelect("monthly")}
+              icon="calendar-month"
+            >
               每月重复
             </Button>
-            <Button mode="contained" style={styles.modalButton} onPress={() => handleRepeatTypeSelect('custom')} icon="calendar-clock">
+            <Button
+              mode="contained"
+              style={styles.modalButton}
+              onPress={() => handleRepeatTypeSelect("custom")}
+              icon="calendar-clock"
+            >
               自定义重复周期
             </Button>
-            <Button mode="outlined" style={styles.modalButton} onPress={() => setRepeatModalVisible(false)} icon="close">
+            <Button
+              mode="outlined"
+              style={styles.modalButton}
+              onPress={() => setRepeatModalVisible(false)}
+              icon="close"
+            >
               取消
             </Button>
           </View>
@@ -678,18 +853,18 @@ export default function AddScreen() {
           onDismiss={() => setCustomModalVisible(false)}
           contentContainerStyle={[
             styles.modalContainer,
-            Platform.OS === 'android' && styles.androidModalContainer
+            Platform.OS === "android" && styles.androidModalContainer,
           ]}
           style={[
             styles.modal,
-            Platform.OS === 'android' && styles.androidModal
+            Platform.OS === "android" && styles.androidModal,
           ]}
         >
           <Text style={styles.modalTitle}>自定义重复周期</Text>
           <View style={styles.modalContent}>
             <TextInput
               label="周期（1-14天）"
-              value={customPeriod === 0 ? '' : customPeriod.toString()}
+              value={customPeriod === 0 ? "" : customPeriod.toString()}
               onChangeText={handleCustomPeriodChange}
               keyboardType="numeric"
               style={styles.input}
@@ -698,25 +873,39 @@ export default function AddScreen() {
               mode="outlined"
             />
             <View style={styles.checkboxContainer}>
-              {Array.from({ length: customPeriod }, (_, i) => i + 1).map(day => (
-                <View key={day} style={styles.checkboxItem}>
-                  <Checkbox
-                    status={customDays.includes(day) ? 'checked' : 'unchecked'}
-                    onPress={() => handleCustomDayToggle(day)}
-                  />
-                  <Text>第 {day} 天</Text>
-                </View>
-              ))}
+              {Array.from({ length: customPeriod }, (_, i) => i + 1).map(
+                (day) => (
+                  <View key={day} style={styles.checkboxItem}>
+                    <Checkbox
+                      status={
+                        customDays.includes(day) ? "checked" : "unchecked"
+                      }
+                      onPress={() => handleCustomDayToggle(day)}
+                    />
+                    <Text>第 {day} 天</Text>
+                  </View>
+                )
+              )}
             </View>
-            <Button mode="contained" style={styles.modalButton} onPress={() => setCustomModalVisible(false)} icon="check">
+            <Button
+              mode="contained"
+              style={styles.modalButton}
+              onPress={() => setCustomModalVisible(false)}
+              icon="check"
+            >
               确定
             </Button>
-            <Button mode="outlined" style={styles.modalButton} onPress={() => setCustomModalVisible(false)} icon="close">
+            <Button
+              mode="outlined"
+              style={styles.modalButton}
+              onPress={() => setCustomModalVisible(false)}
+              icon="close"
+            >
               取消
             </Button>
           </View>
         </Modal>
-        {Platform.OS !== 'web' && (
+        {Platform.OS !== "web" && (
           <DateTimePickerModal
             isVisible={isDatePickerVisible}
             mode="date"
@@ -724,7 +913,7 @@ export default function AddScreen() {
             onCancel={() => setDatePickerVisible(false)}
           />
         )}
-        {Platform.OS !== 'web' && (
+        {Platform.OS !== "web" && (
           <DateTimePickerModal
             isVisible={isTimePickerVisible}
             mode="time"
@@ -733,7 +922,7 @@ export default function AddScreen() {
             date={reminderTimes[currentTimeIndex] || new Date()}
           />
         )}
-        {Platform.OS === 'web' && (
+        {Platform.OS === "web" && (
           <WebDatePicker
             visible={isWebDatePickerVisible}
             onClose={() => setIsWebDatePickerVisible(false)}
@@ -741,7 +930,7 @@ export default function AddScreen() {
             initialDate={reminderDate}
           />
         )}
-        {Platform.OS === 'web' && (
+        {Platform.OS === "web" && (
           <WebTimePicker
             visible={isWebTimePickerVisible}
             onClose={() => setIsWebTimePickerVisible(false)}
@@ -752,18 +941,20 @@ export default function AddScreen() {
       </Portal>
       {/* 顶部提示条 */}
       {snackbarVisible && (
-        <View style={[
-          styles.topNoticeBar,
-          snackbarType === 'error' && { backgroundColor: '#d32f2f' },
-          snackbarType === 'warning' && { backgroundColor: '#ffa000' },
-          snackbarType === 'success' && { backgroundColor: '#388e3c' },
-          snackbarType === 'info' && { backgroundColor: '#1976d2' },
-        ]}>
+        <View
+          style={[
+            styles.topNoticeBar,
+            snackbarType === "error" && { backgroundColor: "#d32f2f" },
+            snackbarType === "warning" && { backgroundColor: "#ffa000" },
+            snackbarType === "success" && { backgroundColor: "#388e3c" },
+            snackbarType === "info" && { backgroundColor: "#1976d2" },
+          ]}
+        >
           <Text style={styles.topNoticeText}>{snackbarMessage}</Text>
           <Button
             mode="text"
             onPress={() => setSnackbarVisible(false)}
-            labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+            labelStyle={{ color: "#fff", fontWeight: "bold" }}
             compact
           >
             确定
@@ -777,7 +968,7 @@ export default function AddScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   scrollView: {
     flex: 1,
@@ -785,14 +976,14 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   reminderSection: {
     marginBottom: 24,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -806,25 +997,25 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   emptyList: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 8,
     padding: 16,
     minHeight: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyText: {
-    color: '#666',
+    color: "#666",
   },
   medicineCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -834,53 +1025,53 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   medicineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   medicineName: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 18,
     flex: 1,
     marginRight: 8,
   },
   iconButtonGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   iconButton: {
     marginHorizontal: 0,
     marginVertical: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   medicineImage: {
-    width: '100%',
+    width: "100%",
     height: 160,
     borderRadius: 8,
     marginVertical: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   medicineInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginTop: 8,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
     gap: 8,
   },
   chip: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: "#e3f2fd",
     marginBottom: 4,
-    maxWidth: '100%',
+    maxWidth: "100%",
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
   chipText: {
-    color: '#1976d2',
+    color: "#1976d2",
     fontSize: 14,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
     lineHeight: 20,
   },
   addButton: {
@@ -890,106 +1081,106 @@ const styles = StyleSheet.create({
   saveButton: {
     marginTop: 4,
     marginBottom: 32,
-    backgroundColor: '#4caf50',
+    backgroundColor: "#4caf50",
   },
   topNoticeBar: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     zIndex: 9999,
     minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#1976d2',
+    backgroundColor: "#1976d2",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3.84,
     elevation: 4,
   },
   topNoticeText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
     flex: 1,
     marginRight: 8,
   },
   timesContainer: {
     marginBottom: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     padding: 16,
     borderRadius: 8,
   },
   timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
     gap: 8,
   },
   timeButton: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderColor: '#1976d2',
+    backgroundColor: "#fff",
+    borderColor: "#1976d2",
     borderWidth: 1,
   },
   deleteButton: {
-    backgroundColor: '#ffebee',
+    backgroundColor: "#ffebee",
     marginLeft: 8,
   },
   addTimeButton: {
     marginTop: 12,
-    backgroundColor: '#e3f2fd',
-    borderColor: '#1976d2',
+    backgroundColor: "#e3f2fd",
+    borderColor: "#1976d2",
     borderWidth: 1,
   },
   selectedDateText: {
     marginTop: 12,
-    color: '#1976d2',
+    color: "#1976d2",
     fontSize: 16,
-    fontWeight: '500',
-    backgroundColor: '#e3f2fd',
+    fontWeight: "500",
+    backgroundColor: "#e3f2fd",
     padding: 12,
     borderRadius: 8,
   },
   checkboxContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
     marginBottom: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     padding: 16,
     borderRadius: 8,
   },
   checkboxItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '50%',
+    flexDirection: "row",
+    alignItems: "center",
+    width: "50%",
     marginBottom: 12,
   },
   modal: {
     margin: 0,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   androidModal: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -20,
     left: 0,
     right: 0,
     margin: 0,
   },
   modalContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 24,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: -2,
@@ -1000,7 +1191,7 @@ const styles = StyleSheet.create({
   },
   androidModalContainer: {
     margin: 0,
-    paddingBottom: Platform.OS === 'android' ? 24 : 0,
+    paddingBottom: Platform.OS === "android" ? 24 : 0,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
   },
@@ -1014,9 +1205,15 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 24,
-    textAlign: 'center',
-    color: '#1976d2',
+    textAlign: "center",
+    color: "#1976d2",
   },
-}); 
+  hourlyInputContainer: {
+    marginTop: 10,
+  },
+  hourlyInput: {
+    backgroundColor: 'transparent',
+  },
+});

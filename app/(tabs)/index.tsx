@@ -1,8 +1,10 @@
+import * as Notifications from 'expo-notifications';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Chip, Dialog, IconButton, Portal, Text, useTheme } from 'react-native-paper';
 import { deleteAlarm, getAllAlarms, initDatabase } from '../services/database';
+import { cancelAlarmNotifications } from '../services/notifications';
 
 interface Alarm {
   id: number;
@@ -28,6 +30,23 @@ export default function HomeScreen() {
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [alarmToDelete, setAlarmToDelete] = useState<number | null>(null);
   const theme = useTheme();
+
+  // 添加通知监听器
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(
+      (notification) => {
+        console.log('收到通知:', {
+          '标题': notification.request.content.title,
+          '内容': notification.request.content.body,
+          '时间': new Date().toISOString()
+        });
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const loadAlarms = async () => {
     try {
@@ -57,12 +76,16 @@ export default function HomeScreen() {
 
   const handleDeleteAlarm = async (id: number) => {
     try {
+      // 先取消所有相关的通知
+      await cancelAlarmNotifications(id);
+      // 然后删除闹钟
       await deleteAlarm(id);
       await loadAlarms(); // 重新加载数据
       setDeleteDialogVisible(false);
       setAlarmToDelete(null);
     } catch (error) {
       console.error('Failed to delete alarm:', error);
+      showSnackbar('删除失败，请重试', 'error');
     }
   };
 
@@ -107,6 +130,8 @@ export default function HomeScreen() {
         return '每周重复';
       case 'monthly':
         return '每月重复';
+      case 'hourly':
+        return `每${customPeriod}小时重复`;
       case 'custom':
         return `自定义重复周期(${customPeriod}天)`;
       default:
@@ -174,7 +199,7 @@ export default function HomeScreen() {
                   <Chip icon="repeat" style={styles.chip}>
                     重复: {getRepeatTypeText(alarm.repeat_type, alarm.custom_period, alarm.custom_days)}
                   </Chip>
-                  {alarm.custom_days && (
+                  {alarm.custom_days && Array.isArray(alarm.custom_days) && alarm.custom_days.length > 0 && (
                     <Chip icon="calendar-clock" style={styles.chip}>
                       自定义天数: 第 {alarm.custom_days.join(', ')} 天
                     </Chip>
