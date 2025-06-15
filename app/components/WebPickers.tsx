@@ -175,57 +175,61 @@ export const WebDatePicker = ({ visible, onClose, onConfirm, initialDate }: WebD
 const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: 'white',
-    padding: 24,
-    margin: 20,
+    padding: 20,
+    margin: 'auto',
     borderRadius: 8,
+    maxWidth: 600,
+    width: '90%',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center',
     color: '#1976d2',
   },
   modalContent: {
-    gap: 12,
+    gap: 8,
   },
   modalButton: {
-    marginVertical: 6,
+    marginVertical: 4,
     borderRadius: 8,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   webTimePickerContainer: {
-    padding: 16,
+    padding: 12,
   },
   timeInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   timeInput: {
-    width: 80,
+    width: 70,
     textAlign: 'center',
+    height: 50,
   },
   timeSeparator: {
-    fontSize: 24,
-    marginHorizontal: 8,
+    fontSize: 20,
+    marginHorizontal: 6,
   },
   webDatePickerContainer: {
-    padding: 16,
+    padding: 12,
   },
   dateInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   dateInput: {
-    width: 80,
+    width: 70,
     textAlign: 'center',
+    height: 50,
   },
   dateSeparator: {
-    fontSize: 24,
-    marginHorizontal: 8,
+    fontSize: 20,
+    marginHorizontal: 6,
   },
 }); 

@@ -25,6 +25,7 @@ import {
     saveAlarmWithMedicines,
     updateAlarmWithMedicines,
 } from "../services/database";
+import { isDesktopBrowser } from "../services/deviceDetection";
 import {
     cancelAlarmNotifications,
     requestNotificationPermissions,
@@ -88,7 +89,7 @@ export default function AddScreen() {
   // 添加新的状态变量用于备用选择器
   const [showBackupDatePicker, setShowBackupDatePicker] = useState(false);
   const [showBackupTimePicker, setShowBackupTimePicker] = useState(false);
-  const [useBackupPicker, setUseBackupPicker] = useState(Platform.OS === 'android'); // 在Android上默认使用备用选择器
+  const [useBackupPicker, setUseBackupPicker] = useState(!isDesktopBrowser()); // 非桌面浏览器使用备用选择器
 
   // 备用选择器的处理函数
   const [tempDate, setTempDate] = useState<Date | null>(null);
@@ -596,18 +597,12 @@ export default function AddScreen() {
 
   // 修改日期选择处理函数
   const handleDatePress = () => {
-    if (Platform.OS === "web") {
+    if (isDesktopBrowser()) {
+      // 只有PC端浏览器才使用WebDatePicker
       setIsWebDatePickerVisible(true);
-    } else if (Platform.OS === "android") {
-      // 在Android上使用自定义日期选择器
-      setShowCustomDatePicker(true);
     } else {
-      try {
-        setDatePickerVisible(true);
-      } catch (error) {
-        console.error("Error showing date picker:", error);
-        setShowCustomDatePicker(true);
-      }
+      // 移动端（包括手机浏览器）使用自定义日期选择器
+      setShowCustomDatePicker(true);
     }
   };
 
@@ -621,18 +616,12 @@ export default function AddScreen() {
   // 修改时间选择处理函数
   const handleTimePress = (index: number) => {
     setCurrentTimeIndex(index);
-    if (Platform.OS === "web") {
+    if (isDesktopBrowser()) {
+      // 只有PC端浏览器才使用WebTimePicker
       setIsWebTimePickerVisible(true);
-    } else if (Platform.OS === "android") {
-      // 在Android上使用自定义时间选择器
-      setShowCustomTimePicker(true);
     } else {
-      try {
-        setTimePickerVisible(true);
-      } catch (error) {
-        console.error("Error showing time picker:", error);
-        setShowCustomTimePicker(true);
-      }
+      // 移动端（包括手机浏览器）使用自定义时间选择器
+      setShowCustomTimePicker(true);
     }
   };
 
@@ -1225,6 +1214,7 @@ export default function AddScreen() {
             </Button>
           </View>
         </Modal>
+        {/* 原生日期时间选择器，现在只在非Web环境且不使用自定义选择器时显示 */}
         {Platform.OS !== "web" && !showCustomDatePicker && !showCustomTimePicker && (
           <DatePicker
             modal
@@ -1254,7 +1244,7 @@ export default function AddScreen() {
           />
         )}
         
-        {/* 自定义日期选择器 */}
+        {/* 自定义日期选择器对话框 */}
         <Dialog
           visible={showCustomDatePicker}
           onDismiss={() => setShowCustomDatePicker(false)}
@@ -1358,7 +1348,7 @@ export default function AddScreen() {
           </Dialog.Actions>
         </Dialog>
         
-        {/* 自定义时间选择器 */}
+        {/* 自定义时间选择器对话框 */}
         <Dialog
           visible={showCustomTimePicker}
           onDismiss={() => setShowCustomTimePicker(false)}
@@ -1443,7 +1433,8 @@ export default function AddScreen() {
             }}>确定</Button>
           </Dialog.Actions>
         </Dialog>
-        {Platform.OS === "web" && (
+        {/* Web端选择器，只在桌面浏览器中显示 */}
+        {isDesktopBrowser() && (
           <WebDatePicker
             visible={isWebDatePickerVisible}
             onClose={() => setIsWebDatePickerVisible(false)}
@@ -1451,7 +1442,7 @@ export default function AddScreen() {
             initialDate={reminderDate}
           />
         )}
-        {Platform.OS === "web" && (
+        {isDesktopBrowser() && (
           <WebTimePicker
             visible={isWebTimePickerVisible}
             onClose={() => setIsWebTimePickerVisible(false)}

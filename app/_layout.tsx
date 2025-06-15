@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    maxWidth: 1200, // 设置最大宽度
+    maxWidth: 600, // 设置最大宽度
     width: '100%',
     alignSelf: 'center', // 在大屏幕上居中
     backgroundColor: '#ffffff', // 内容区域背景色
