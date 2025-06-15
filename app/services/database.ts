@@ -51,7 +51,8 @@ export const saveAlarmWithMedicines = async (
     name: string;
     image?: string;
     dosage?: string;
-  }>
+  }>,
+  status: number = 1 // 默认为启用状态
 ) => {
   try {
     // 获取现有数据
@@ -70,6 +71,7 @@ export const saveAlarmWithMedicines = async (
       custom_period: customPeriod,
       custom_days: customDays ? JSON.stringify(customDays) : null,
       notification_ids: JSON.stringify(notification_ids),
+      status, // 添加状态字段
       created_at: new Date().toISOString()
     };
 
@@ -168,7 +170,8 @@ export const updateAlarmWithMedicines = async (
     name: string;
     image?: string;
     dosage?: string;
-  }>
+  }>,
+  status: number = 1 // 默认为启用状态
 ) => {
   try {
     const alarmsStr = await storage.getItem(ALARMS_KEY);
@@ -187,7 +190,8 @@ export const updateAlarmWithMedicines = async (
         repeat_type: repeatType,
         custom_period: customPeriod,
         custom_days: customDays ? JSON.stringify(customDays) : null,
-        notification_ids: JSON.stringify(notification_ids)
+        notification_ids: JSON.stringify(notification_ids),
+        status // 更新状态字段
       };
       await storage.setItem(ALARMS_KEY, JSON.stringify(alarms));
     }
@@ -212,6 +216,32 @@ export const updateAlarmWithMedicines = async (
     return true;
   } catch (error) {
     console.error('Error updating alarm and medicines:', error);
+    throw error;
+  }
+};
+
+// 更新闹钟状态（启用/禁用）
+export const updateAlarmStatus = async (alarmId: number, status: number): Promise<boolean> => {
+  try {
+    const alarmsStr = await storage.getItem(ALARMS_KEY);
+    const alarms = JSON.parse(alarmsStr || '[]');
+    
+    const alarmIndex = alarms.findIndex((a: any) => a.id === alarmId);
+    if (alarmIndex === -1) {
+      throw new Error(`闹钟ID ${alarmId} 不存在`);
+    }
+    
+    // 只更新状态字段
+    alarms[alarmIndex] = {
+      ...alarms[alarmIndex],
+      status
+    };
+    
+    await storage.setItem(ALARMS_KEY, JSON.stringify(alarms));
+    console.log(`闹钟 ${alarmId} 状态已更新为 ${status === 1 ? '启用' : '禁用'}`);
+    return true;
+  } catch (error) {
+    console.error('更新闹钟状态时出错:', error);
     throw error;
   }
 }; 

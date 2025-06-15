@@ -11,6 +11,7 @@ import {
     IconButton,
     Modal,
     Portal,
+    Switch,
     Text,
     TextInput,
     useTheme,
@@ -18,6 +19,7 @@ import {
 import MedicineForm, { MedicineData } from "../components/MedicineForm";
 import { WebDatePicker, WebTimePicker } from "../components/WebPickers";
 import {
+    deleteAlarm,
     getAllAlarms,
     initDatabase,
     saveAlarmWithMedicines,
@@ -52,6 +54,7 @@ export default function AddScreen() {
   const [alarm, setAlarm] = useState<Alarm | null>(null);
   const [loading, setLoading] = useState(isEditMode);
   const [alarmName, setAlarmName] = useState("");
+  const [status, setStatus] = useState<number>(1);
   const [medicines, setMedicines] = useState<CombinedData[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -110,6 +113,7 @@ export default function AddScreen() {
   // 清空所有数据的函数
   const resetForm = () => {
     setAlarmName("");
+    setStatus(1);
     setReminderDate(new Date());
     setReminderTimes([]);
     setRepeatType("single");
@@ -137,6 +141,7 @@ export default function AddScreen() {
       if (foundAlarm) {
         setAlarm(foundAlarm);
         setAlarmName(foundAlarm.name);
+        setStatus(foundAlarm.status ?? 1);
         setReminderDate(new Date(foundAlarm.reminder_date));
         setReminderTimes(
           foundAlarm.reminder_times.map((time) => new Date(time))
@@ -270,45 +275,82 @@ export default function AddScreen() {
 
       if (isEditMode) {
         // 先取消旧的通知
-        await cancelAlarmNotifications(alarmId);
-      }
-      // 新建和编辑都要调度新通知
-      const notificationIds = await scheduleAlarmNotifications(
-        alarmId,
-        alarmName,
-        reminderDate,
-        reminderTimes,
-        repeatType,
-        customPeriod,
-        customDays,
-        medicines
-      );
-
-      if (isEditMode) {
-        // 更新闹钟
+        await cancelAlarmNotifications(Number(id));
+        
+        // 如果闹钟启用，则注册新通知
+        let notificationIds: string[] = [];
+        if (status === 1) {
+          notificationIds = await scheduleAlarmNotifications(
+            Number(id),
+            alarmName,
+            reminderDate,
+            reminderTimes,
+            repeatType,
+            repeatType === "custom" ? customPeriod : null,
+            repeatType === "custom" ? customDays : null,
+            medicines.map(medicine => ({
+              name: medicine.name,
+              dosage: medicine.dosage
+            }))
+          );
+        }
+        
         await updateAlarmWithMedicines(
-          alarmId,
+          Number(id),
           alarmName,
           reminderDate,
           reminderTimes,
           repeatType,
-          customPeriod,
-          customDays,
+          repeatType === "custom" ? customPeriod : null,
+          repeatType === "custom" ? customDays : null,
           notificationIds,
-          medicines
+          medicines.map(medicine => ({
+            id: medicine.id,
+            name: medicine.name,
+            image: medicine.image,
+            dosage: medicine.dosage
+          })),
+          status // 传递状态参数
         );
         showSnackbar('闹钟更新成功', 'success');
       } else {
-        // 添加新闹钟
-        const newAlarmId = await saveAlarmWithMedicines(
+        // 如果闹钟启用，则注册通知
+        let notificationIds: string[] = [];
+        
+        // 获取当前所有闹钟，计算新ID
+        const allAlarms = await getAllAlarms();
+        const newAlarmId = allAlarms.length + 1;
+        
+        if (status === 1) {
+          notificationIds = await scheduleAlarmNotifications(
+            newAlarmId, // 使用计算的新闹钟ID
+            alarmName,
+            reminderDate,
+            reminderTimes,
+            repeatType,
+            repeatType === "custom" ? customPeriod : null,
+            repeatType === "custom" ? customDays : null,
+            medicines.map(medicine => ({
+              name: medicine.name,
+              dosage: medicine.dosage
+            }))
+          );
+        }
+        
+        await saveAlarmWithMedicines(
           alarmName,
           reminderDate,
           reminderTimes,
           repeatType,
-          customPeriod,
-          customDays,
+          repeatType === "custom" ? customPeriod : null,
+          repeatType === "custom" ? customDays : null,
           notificationIds,
-          medicines
+          medicines.map(medicine => ({
+            name: medicine.name,
+            image: medicine.image,
+            dosage: medicine.dosage
+          })),
+          status // 传递状态参数
         );
         showSnackbar('闹钟添加成功', 'success');
       }
@@ -564,6 +606,39 @@ export default function AddScreen() {
     }
   };
 
+  // 添加删除闹钟的函数
+  const [isDeleteAlarmDialogVisible, setIsDeleteAlarmDialogVisible] = useState(false);
+
+  const handleDeleteAlarmConfirm = () => {
+    setIsDeleteAlarmDialogVisible(true);
+  };
+
+  const handleDeleteAlarm = async () => {
+    try {
+      if (id) {
+        // 取消所有相关的通知
+        await cancelAlarmNotifications(Number(id));
+        // 删除闹钟
+        await deleteAlarm(Number(id));
+        showSnackbar("闹钟已删除", "success");
+        // 跳转到首页
+        router.replace({
+          pathname: "/(tabs)",
+          params: { refresh: Date.now() }
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete alarm:", error);
+      showSnackbar("删除失败，请重试", "error");
+    } finally {
+      setIsDeleteAlarmDialogVisible(false);
+    }
+  };
+
+  const handleCancelDeleteAlarm = () => {
+    setIsDeleteAlarmDialogVisible(false);
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -574,14 +649,38 @@ export default function AddScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView ref={scrollViewRef} style={styles.scrollView}>
-        <TextInput
-          label="闹钟名称"
-          value={alarmName}
-          onChangeText={setAlarmName}
-          style={styles.input}
-          maxLength={20}
-        />
+      <ScrollView 
+        ref={scrollViewRef} 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+      >
+        <View style={styles.basicInfoSection}>
+          <Text variant="titleLarge" style={styles.sectionTitle}>
+            基本信息
+          </Text>
+          
+          <TextInput
+            label="闹钟名称"
+            value={alarmName}
+            onChangeText={setAlarmName}
+            style={[styles.input, styles.nameInput]}
+            maxLength={20}
+          />
+          
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusLabel}>闹钟状态</Text>
+            <View style={styles.switchContainer}>
+              <Text style={status === 1 ? styles.activeStatus : styles.inactiveStatus}>
+                {status === 1 ? '已启用' : '已禁用'}
+              </Text>
+              <Switch
+                value={status === 1}
+                onValueChange={(value) => setStatus(value ? 1 : 0)}
+                color="#1976d2"
+              />
+            </View>
+          </View>
+        </View>
 
         <View style={styles.reminderSection}>
           <Text variant="titleLarge" style={styles.sectionTitle}>
@@ -590,7 +689,7 @@ export default function AddScreen() {
           <Button
             mode="outlined"
             onPress={handleDatePress}
-            style={styles.input}
+            style={[styles.input, styles.buttonWithShadow]}
             icon="calendar"
           >
             提醒日期: {reminderDate.toLocaleDateString()}
@@ -614,7 +713,7 @@ export default function AddScreen() {
                   icon="delete"
                   size={20}
                   onPress={() => handleRemoveTime(index)}
-                  style={styles.deleteButton}
+                  style={styles.timeDeleteButton}
                   iconColor="#d32f2f"
                 />
               </View>
@@ -633,7 +732,7 @@ export default function AddScreen() {
           <Button
             mode="outlined"
             onPress={() => setRepeatModalVisible(true)}
-            style={styles.input}
+            style={[styles.input, styles.buttonWithShadow]}
             icon="repeat"
           >
             重复类型:{" "}
@@ -654,7 +753,7 @@ export default function AddScreen() {
                 value={hourlyInterval.toString()}
                 onChangeText={handleHourlyIntervalChange}
                 keyboardType="numeric"
-                style={styles.hourlyInput}
+                style={[styles.hourlyInput, styles.inputWithShadow]}
               />
             </View>
           )}
@@ -662,7 +761,7 @@ export default function AddScreen() {
             <Button
               mode="outlined"
               onPress={() => setCustomModalVisible(true)}
-              style={styles.input}
+              style={[styles.input, styles.buttonWithShadow]}
               icon="calendar-clock"
             >
               选择自定义重复周期
@@ -695,7 +794,7 @@ export default function AddScreen() {
                       icon="pencil"
                       size={22}
                       style={styles.iconButton}
-                      containerColor={theme.colors.primary}
+                      containerColor="#1976d2"
                       iconColor="#fff"
                       onPress={() => handleEditMedicine(index)}
                     />
@@ -703,7 +802,7 @@ export default function AddScreen() {
                       icon="delete"
                       size={22}
                       style={styles.iconButton}
-                      containerColor={theme.colors.error}
+                      containerColor="#d32f2f"
                       iconColor="#fff"
                       onPress={() => handleRequestDeleteMedicine(index)}
                     />
@@ -742,11 +841,11 @@ export default function AddScreen() {
             showSnackbar={showSnackbar}
           />
         ) : (
-          <>
+          <View style={styles.buttonContainer}>
             <Button
               mode="contained"
               icon="plus"
-              style={styles.addButton}
+              style={[styles.addButton, styles.actionButton]}
               onPress={handleStartAdding}
             >
               添加药品
@@ -755,13 +854,23 @@ export default function AddScreen() {
               <Button
                 mode="contained"
                 icon="content-save"
-                style={styles.saveButton}
+                style={[styles.saveButton, styles.actionButton]}
                 onPress={handleSaveAlarm}
               >
                 {isEditMode ? "保存修改" : "保存闹钟"}
               </Button>
             )}
-          </>
+            {isEditMode && (
+              <Button
+                mode="contained"
+                icon="delete"
+                style={[styles.deleteButton, styles.actionButton]}
+                onPress={handleDeleteAlarmConfirm}
+              >
+                删除闹钟
+              </Button>
+            )}
+          </View>
         )}
       </ScrollView>
 
@@ -778,12 +887,32 @@ export default function AddScreen() {
             <Button onPress={handleCancelDeleteMedicine}>取消</Button>
             <Button
               onPress={handleConfirmDeleteMedicine}
-              textColor={theme.colors.error}
+              textColor="#d32f2f"
             >
               删除
             </Button>
           </Dialog.Actions>
         </Dialog>
+
+        <Dialog
+          visible={isDeleteAlarmDialogVisible}
+          onDismiss={handleCancelDeleteAlarm}
+        >
+          <Dialog.Title>确认删除闹钟</Dialog.Title>
+          <Dialog.Content>
+            <Text>确定要删除整个闹钟吗？此操作将删除所有相关药品及提醒，且无法撤销。</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={handleCancelDeleteAlarm}>取消</Button>
+            <Button
+              onPress={handleDeleteAlarm}
+              textColor="#d32f2f"
+            >
+              删除
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
         <Modal
           visible={isRepeatModalVisible}
           onDismiss={() => setRepeatModalVisible(false)}
@@ -974,26 +1103,40 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  scrollViewContent: {
+    paddingBottom: Platform.OS === 'web' ? 20 : 40, // 网页端20px，移动端40px
+  },
   input: {
     marginBottom: 16,
     backgroundColor: "#fff",
   },
   reminderSection: {
-    marginBottom: 24,
-    backgroundColor: "#fff",
+    marginBottom: 20,
+    backgroundColor: "#e6f7ed",
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 3.84,
-    elevation: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   medicineList: {
-    marginBottom: 5,
+    marginBottom: 20,
+    backgroundColor: "#f9f0eb",
+    padding: 16,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   sectionTitle: {
     marginBottom: 12,
@@ -1006,6 +1149,14 @@ const styles = StyleSheet.create({
     minHeight: 100,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   emptyText: {
     color: "#666",
@@ -1013,16 +1164,16 @@ const styles = StyleSheet.create({
   medicineCard: {
     backgroundColor: "#fff",
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 3.84,
-    elevation: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   medicineHeader: {
     flexDirection: "row",
@@ -1075,13 +1226,53 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   addButton: {
-    marginTop: 8,
-    marginBottom: 6,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: "#FF8C00", // 橙色，与药品列表背景色调一致
+    borderRadius: 8,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
   saveButton: {
-    marginTop: 4,
-    marginBottom: 32,
-    backgroundColor: "#4caf50",
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: "#4CAF50", // 绿色，表示保存操作
+    borderRadius: 8,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  deleteButton: {
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: "#F44336", // 红色，表示删除操作
+    borderRadius: 8,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  actionButton: {
+    width: "100%", // 确保按钮宽度占满整个容器
+    height: 50, // 增加高度使按钮更加明显
   },
   topNoticeBar: {
     position: "absolute",
@@ -1114,9 +1305,17 @@ const styles = StyleSheet.create({
   },
   timesContainer: {
     marginBottom: 20,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   timeRow: {
     flexDirection: "row",
@@ -1130,7 +1329,7 @@ const styles = StyleSheet.create({
     borderColor: "#1976d2",
     borderWidth: 1,
   },
-  deleteButton: {
+  timeDeleteButton: {
     backgroundColor: "#ffebee",
     marginLeft: 8,
   },
@@ -1215,5 +1414,103 @@ const styles = StyleSheet.create({
   },
   hourlyInput: {
     backgroundColor: 'transparent',
+  },
+  basicInfoSection: {
+    marginBottom: 20,
+    backgroundColor: "#e8f4fd",
+    padding: 16,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statusContainer: {
+    marginVertical: 10,
+    padding: 10,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statusLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  switchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  activeStatus: {
+    color: "#1976d2",
+    marginRight: 8,
+    fontSize: 14,
+  },
+  inactiveStatus: {
+    color: "#757575",
+    marginRight: 8,
+    fontSize: 14,
+  },
+  nameInput: {
+    backgroundColor: "#fff",
+    marginVertical: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  buttonWithShadow: {
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  inputWithShadow: {
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  buttonContainer: {
+    marginTop: 10,
+    marginBottom: 40,
+    backgroundColor: "#f0f0f0",
+    padding: 16,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });

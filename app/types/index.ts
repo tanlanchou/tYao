@@ -32,6 +32,7 @@ export interface Alarm {
   custom_period: number | null;
   custom_days: number[] | null;
   created_at: string;
+  status: number; // 0: 禁用, 1: 启用
   medicines: Array<{
     id: number;
     name: string;

@@ -3,8 +3,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Chip, Dialog, IconButton, Portal, Text, useTheme } from 'react-native-paper';
-import { deleteAlarm, getAllAlarms, initDatabase } from '../services/database';
-import { cancelAlarmNotifications } from '../services/notifications';
+import { deleteAlarm, getAllAlarms, initDatabase, updateAlarmStatus } from '../services/database';
+import { cancelAlarmNotifications, scheduleAlarmNotifications } from '../services/notifications';
 
 interface Alarm {
   id: number;
@@ -21,6 +21,7 @@ interface Alarm {
     image?: string;
     dosage?: string;
   }>;
+  status: number;
 }
 
 export default function HomeScreen() {
@@ -139,6 +140,51 @@ export default function HomeScreen() {
     }
   };
 
+  // 添加showSnackbar函数
+  const showSnackbar = (message: string, type: 'error' | 'warning' | 'success' | 'info' = 'info') => {
+    console.log(`[${type}] ${message}`);
+    // 如果需要可以在这里实现真正的snackbar显示
+  };
+
+  // 修改handleToggleAlarmStatus函数中的repeat_type类型
+  const handleToggleAlarmStatus = async (alarm: Alarm) => {
+    try {
+      // 计算新状态（切换）
+      const newStatus = alarm.status === 1 ? 0 : 1;
+      
+      // 更新状态
+      await updateAlarmStatus(alarm.id, newStatus);
+      
+      // 处理通知
+      if (newStatus === 0) {
+        // 禁用闹钟，取消所有通知
+        await cancelAlarmNotifications(alarm.id);
+      } else {
+        // 启用闹钟，注册通知
+        const reminderDate = new Date(alarm.reminder_date);
+        const reminderTimes = alarm.reminder_times.map(time => new Date(time));
+        
+        await scheduleAlarmNotifications(
+          alarm.id,
+          alarm.name,
+          reminderDate,
+          reminderTimes,
+          alarm.repeat_type as "single" | "weekly" | "monthly" | "custom" | "hourly", // 类型断言
+          alarm.custom_period,
+          alarm.custom_days,
+          alarm.medicines
+        );
+      }
+      
+      // 重新加载数据
+      await loadAlarms();
+      showSnackbar(`闹钟已${newStatus === 1 ? '启用' : '禁用'}`, 'success');
+    } catch (error) {
+      console.error('Failed to toggle alarm status:', error);
+      showSnackbar('更新闹钟状态失败', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -170,6 +216,16 @@ export default function HomeScreen() {
                     {alarm.name}
                   </Text>
                   <View style={styles.iconButtonGroup}>
+                    <Chip
+                      icon={alarm.status === 1 ? "bell" : "bell-off"}
+                      onPress={() => handleToggleAlarmStatus(alarm)}
+                      style={[
+                        styles.statusChip,
+                        alarm.status === 1 ? styles.activeStatusChip : styles.inactiveStatusChip
+                      ]}
+                    >
+                      {alarm.status === 1 ? "已启用" : "已禁用"}
+                    </Chip>
                     <IconButton
                       icon="pencil"
                       size={22}
@@ -272,6 +328,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingTop: 100,
+    backgroundColor: "#f5f5f5",
+    padding: 16,
+    borderRadius: 8,
   },
   emptyText: {
     fontSize: 18,
@@ -280,16 +339,46 @@ const styles = StyleSheet.create({
   },
   addButton: {
     marginTop: 16,
+    backgroundColor: "#1976d2",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   card: {
     marginBottom: 16,
     elevation: 2,
+    backgroundColor: "#e8f4fd",
+    borderRadius: 8,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   alarmName: {
     fontWeight: "bold",
@@ -310,12 +399,35 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
     marginBottom: 16,
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   chip: {
     marginBottom: 8,
   },
   medicineSection: {
-    marginTop: 8,
+    marginTop: 12,
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   sectionTitle: {
     marginBottom: 8,
@@ -325,9 +437,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   medicineItem: {
-    backgroundColor: "rgb(232, 222, 248)",
+    backgroundColor: "#f0f0f0",
     borderRadius: 8,
-    paddingVertical: 0,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     elevation: 1,
   },
@@ -339,5 +451,15 @@ const styles = StyleSheet.create({
   },
   medicineChip: {
     alignSelf: "flex-start",
+  },
+  statusChip: {
+    marginRight: 8,
+    height: 32,
+  },
+  activeStatusChip: {
+    backgroundColor: "#4caf50",
+  },
+  inactiveStatusChip: {
+    backgroundColor: "#9e9e9e",
   },
 });
