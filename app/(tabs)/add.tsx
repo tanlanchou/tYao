@@ -104,6 +104,11 @@ export default function AddScreen() {
   const [tempHour, setTempHour] = useState(new Date().getHours());
   const [tempMinute, setTempMinute] = useState(new Date().getMinutes());
   
+  // 小时间隔选择器
+  const [showHourlyIntervalPicker, setShowHourlyIntervalPicker] = useState(false);
+  const [tempHourlyInterval, setTempHourlyInterval] = useState(1);
+  const hourlyIntervalScrollRef = useRef<ScrollView>(null);
+  
   // 添加ScrollView引用
   const yearScrollRef = useRef<ScrollView>(null);
   const monthScrollRef = useRef<ScrollView>(null);
@@ -802,6 +807,29 @@ export default function AddScreen() {
     return Array.from({ length: 60 }, (_, i) => i);
   };
   
+  // 生成小时间隔选项（1-24小时）
+  const generateHourlyIntervals = () => {
+    return Array.from({ length: 24 }, (_, i) => i + 1);
+  };
+  
+  // 处理小时间隔变更
+  const handleHourlyIntervalPickerChange = (interval: number) => {
+    setTempHourlyInterval(interval);
+    hourlyIntervalScrollRef.current?.scrollTo({ y: (interval - 1) * 40, animated: true });
+  };
+  
+  // 初始化小时间隔选择器并滚动到选中位置
+  useEffect(() => {
+    if (showHourlyIntervalPicker) {
+      setTempHourlyInterval(hourlyInterval);
+      
+      // 延迟滚动，确保组件已渲染
+      setTimeout(() => {
+        hourlyIntervalScrollRef.current?.scrollTo({ y: (hourlyInterval - 1) * 40, animated: false });
+      }, 100);
+    }
+  }, [showHourlyIntervalPicker, hourlyInterval]);
+  
   const renderPickerItem = (value: number, isSelected: boolean) => (
     <TouchableOpacity
       key={value}
@@ -928,13 +956,24 @@ export default function AddScreen() {
           </Button>
           {repeatType === "hourly" && (
             <View style={styles.hourlyInputContainer}>
-              <TextInput
-                label="重复间隔（小时）"
-                value={hourlyInterval.toString()}
-                onChangeText={handleHourlyIntervalChange}
-                keyboardType="numeric"
-                style={[styles.hourlyInput, styles.inputWithShadow]}
-              />
+              {isDesktopBrowser() ? (
+                <TextInput
+                  label="重复间隔（小时）"
+                  value={hourlyInterval.toString()}
+                  onChangeText={handleHourlyIntervalChange}
+                  keyboardType="numeric"
+                  style={[styles.hourlyInput, styles.inputWithShadow]}
+                />
+              ) : (
+                <Button
+                  mode="outlined"
+                  onPress={() => setShowHourlyIntervalPicker(true)}
+                  style={[styles.input, styles.buttonWithShadow]}
+                  icon="clock"
+                >
+                  重复间隔（小时）: {hourlyInterval}
+                </Button>
+              )}
             </View>
           )}
           {repeatType === "custom" && (
@@ -1450,6 +1489,53 @@ export default function AddScreen() {
             initialTime={reminderTimes[currentTimeIndex] || new Date()}
           />
         )}
+        
+        {/* 小时间隔选择器对话框 */}
+        <Dialog
+          visible={showHourlyIntervalPicker}
+          onDismiss={() => setShowHourlyIntervalPicker(false)}
+          style={styles.customPickerDialog}
+        >
+          <Dialog.Title>选择重复间隔（小时）</Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.customPickerContainer}>
+              <View style={styles.customPickerColumn}>
+                <Text style={styles.customPickerLabel}>小时</Text>
+                <ScrollView 
+                  ref={hourlyIntervalScrollRef}
+                  style={styles.customPickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
+                >
+                  {generateHourlyIntervals().map(interval => (
+                    <TouchableOpacity
+                      key={interval}
+                      style={[
+                        styles.pickerItem,
+                        interval === tempHourlyInterval && styles.pickerItemSelected
+                      ]}
+                      onPress={() => handleHourlyIntervalPickerChange(interval)}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        interval === tempHourlyInterval && styles.pickerItemTextSelected
+                      ]}>
+                        {interval}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowHourlyIntervalPicker(false)}>取消</Button>
+            <Button onPress={() => {
+              setHourlyInterval(tempHourlyInterval);
+              setShowHourlyIntervalPicker(false);
+            }}>确定</Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
       {/* 顶部提示条 */}
       {snackbarVisible && (
