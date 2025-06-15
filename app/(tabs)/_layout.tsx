@@ -16,10 +16,16 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.outline,
+        tabBarInactiveTintColor: vibrantColors.navIconInactive,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          paddingBottom: 0,
+          marginTop: -2
+        },
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          height: 60,
+          height: 65,
           position: 'relative',
           borderTopWidth: 0,
           elevation: 8,
@@ -47,7 +53,7 @@ export default function TabLayout() {
         options={{
           title: '服药闹钟',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="pill" size={size} color={color} />
+            <MaterialCommunityIcons name="pill" size={size * 1.2} color={color} />
           ),
         }}
       />
@@ -99,7 +105,22 @@ export default function TabLayout() {
         options={{
           title: '设置',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cog" size={size} color={color} />
+            <MaterialCommunityIcons name="cog" size={size * 1.2} color={color} />
+          ),
+          headerLeft: () => (
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={28}
+              color={vibrantColors.textLight}
+              style={{ marginLeft: 12 }}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/');
+                }
+              }}
+            />
           ),
         }}
       />

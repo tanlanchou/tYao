@@ -30,6 +30,7 @@ import {
     requestNotificationPermissions,
     scheduleAlarmNotifications,
 } from "../services/notifications";
+import vibrantColors from "../theme/colors"; // 导入vibrantColors
 import { Alarm, CombinedData } from "../types";
 
 interface ReminderData {
@@ -215,6 +216,7 @@ export default function AddScreen() {
     setRepeatType("single");
     setCustomPeriod(7);
     setCustomDays([]);
+    setHourlyInterval(1);  // 添加重置hourlyInterval的代码
     setMedicines([]);
     setIsAdding(false);
     setEditingIndex(null);
@@ -247,6 +249,12 @@ export default function AddScreen() {
         );
         setCustomPeriod(foundAlarm.custom_period || 7);
         setCustomDays(foundAlarm.custom_days || []);
+        
+        // 如果是hourly类型，设置hourlyInterval
+        if (foundAlarm.repeat_type === "hourly") {
+          setHourlyInterval(foundAlarm.custom_period || 1);
+        }
+        
         setMedicines(
           foundAlarm.medicines.map((medicine) => ({
             ...medicine,
@@ -382,7 +390,8 @@ export default function AddScreen() {
             reminderDate,
             reminderTimes,
             repeatType,
-            repeatType === "custom" ? customPeriod : null,
+            repeatType === "custom" ? customPeriod : 
+            repeatType === "hourly" ? hourlyInterval : null,
             repeatType === "custom" ? customDays : null,
             medicines.map(medicine => ({
               name: medicine.name,
@@ -397,7 +406,8 @@ export default function AddScreen() {
           reminderDate,
           reminderTimes,
           repeatType,
-          repeatType === "custom" ? customPeriod : null,
+          repeatType === "custom" ? customPeriod : 
+          repeatType === "hourly" ? hourlyInterval : null,
           repeatType === "custom" ? customDays : null,
           notificationIds,
           medicines.map(medicine => ({
@@ -424,7 +434,8 @@ export default function AddScreen() {
             reminderDate,
             reminderTimes,
             repeatType,
-            repeatType === "custom" ? customPeriod : null,
+            repeatType === "custom" ? customPeriod : 
+            repeatType === "hourly" ? hourlyInterval : null,
             repeatType === "custom" ? customDays : null,
             medicines.map(medicine => ({
               name: medicine.name,
@@ -438,7 +449,8 @@ export default function AddScreen() {
           reminderDate,
           reminderTimes,
           repeatType,
-          repeatType === "custom" ? customPeriod : null,
+          repeatType === "custom" ? customPeriod : 
+          repeatType === "hourly" ? hourlyInterval : null,
           repeatType === "custom" ? customDays : null,
           notificationIds,
           medicines.map(medicine => ({
@@ -1963,7 +1975,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "#1976d2",
+    backgroundColor: vibrantColors.primary,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     borderBottomLeftRadius: 8,
@@ -2003,7 +2015,7 @@ const styles = StyleSheet.create({
   timeButton: {
     flex: 1,
     backgroundColor: "#fff",
-    borderColor: "#1976d2",
+    borderColor: vibrantColors.primary,
     borderWidth: 1,
   },
   timeDeleteButton: {
@@ -2013,12 +2025,12 @@ const styles = StyleSheet.create({
   addTimeButton: {
     marginTop: 12,
     backgroundColor: "#e3f2fd",
-    borderColor: "#1976d2",
+    borderColor: vibrantColors.primary,
     borderWidth: 1,
   },
   selectedDateText: {
     marginTop: 12,
-    color: "#1976d2",
+    color: vibrantColors.primary,
     fontSize: 16,
     fontWeight: "500",
     backgroundColor: "#e3f2fd",
@@ -2088,7 +2100,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
-    color: "#FF6B6B", // 使用活泼的主色调
+    color: vibrantColors.primary, // 使用主题色
   },
   hourlyInputContainer: {
     marginTop: 10,
@@ -2136,7 +2148,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   activeStatus: {
-    color: "#1976d2",
+    color: vibrantColors.primary,
     marginRight: 8,
     fontSize: 14,
   },
@@ -2377,7 +2389,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f7ff',
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#1976d2',
+    borderLeftColor: vibrantColors.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -2394,7 +2406,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 16,
     marginBottom: 12,
-    color: '#1976d2',
+    color: vibrantColors.primary,
     textAlign: 'center',
   },
   modalScrollView: {

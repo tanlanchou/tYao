@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { Button, Modal, Portal, Text, TextInput } from 'react-native-paper';
+import vibrantColors from "../theme/colors";
 
 interface MedicineFormProps {
   onSubmit: (data: MedicineData) => void;
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
   editTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1976d2',
+    color: vibrantColors.primary,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
   },
   imageButton: {
     marginBottom: 12,
-    borderColor: '#1976d2',
+    borderColor: vibrantColors.primary,
     borderWidth: 1,
   },
   previewImage: {
@@ -272,6 +273,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
-    color: '#1976d2',
+    color: vibrantColors.primary,
   },
 }); 

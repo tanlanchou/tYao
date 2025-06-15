@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Chip, Dialog, IconButton, Portal, Text, useTheme } from 'react-native-paper';
 import { deleteAlarm, getAllAlarms, initDatabase, updateAlarmStatus } from '../services/database';
 import { cancelAlarmNotifications, scheduleAlarmNotifications } from '../services/notifications';
@@ -223,11 +223,28 @@ export default function HomeScreen() {
                       onPress={() => handleToggleAlarmStatus(alarm)}
                       style={[
                         styles.statusChip,
-                        alarm.status === 1 ? styles.activeStatusChip : styles.inactiveStatusChip
+                        alarm.status === 1 ? styles.activeStatusChip : styles.inactiveStatusChip,
+                        Platform.OS === 'android' && styles.androidStatusChip,
+                        Platform.OS === 'ios' && styles.iosStatusChip,
+                        Platform.OS === 'web' && styles.webStatusChip
                       ]}
                       textStyle={{
-                        color: alarm.status === 1 ? vibrantColors.textLight : vibrantColors.neutral
+                        color: alarm.status === 1 ? vibrantColors.primary : vibrantColors.neutral,
+                        fontWeight: 'bold',
+                        fontSize: 13,
+                        includeFontPadding: false,
+                        ...(Platform.OS === 'android' && {
+                          paddingTop: 3,
+                          lineHeight: 12,
+                        }),
+                        ...(Platform.OS === 'ios' && {
+                          paddingBottom: 1,
+                        }),
+                        ...(Platform.OS === 'web' && {
+                          lineHeight: 20,
+                        }),
                       }}
+                      compact={true}
                     >
                       {alarm.status === 1 ? "已启用" : "已禁用"}
                     </Chip>
@@ -251,17 +268,17 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={styles.infoSection}>
-                  <Chip icon="calendar" style={[styles.chip, {backgroundColor: vibrantColors.primaryLight}]}>
+                  <Chip icon="calendar" style={[styles.chip, {backgroundColor: vibrantColors.primaryLight}]} textStyle={styles.chipText}>
                     日期: {formatDate(alarm.reminder_date)}
                   </Chip>
-                  <Chip icon="clock" style={[styles.chip, {backgroundColor: vibrantColors.secondaryLight}]}>
+                  <Chip icon="clock" style={[styles.chip, {backgroundColor: vibrantColors.secondaryLight}]} textStyle={styles.chipText}>
                     时间: {alarm.reminder_times.map(formatTime).join('、')}
                   </Chip>
-                  <Chip icon="repeat" style={[styles.chip, {backgroundColor: vibrantColors.accentLight}]}>
+                  <Chip icon="repeat" style={[styles.chip, {backgroundColor: vibrantColors.accentLight}]} textStyle={styles.chipText}>
                     重复: {getRepeatTypeText(alarm.repeat_type, alarm.custom_period, alarm.custom_days)}
                   </Chip>
                   {alarm.custom_days && Array.isArray(alarm.custom_days) && alarm.custom_days.length > 0 && (
-                    <Chip icon="calendar-clock" style={[styles.chip, {backgroundColor: vibrantColors.infoLight}]}>
+                    <Chip icon="calendar-clock" style={[styles.chip, {backgroundColor: vibrantColors.infoLight}]} textStyle={styles.chipText}>
                       自定义天数: 第 {alarm.custom_days.join(', ')} 天
                     </Chip>
                   )}
@@ -277,6 +294,7 @@ export default function HomeScreen() {
                         <Chip 
                           icon="pill" 
                           style={[styles.medicineChip, {backgroundColor: vibrantColors.successLight}]}
+                          textStyle={styles.chipText}
                         >
                           {medicine.name}
                           {medicine.dosage && ` (${medicine.dosage})`}
@@ -397,23 +415,73 @@ const styles = StyleSheet.create({
   infoSection: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 20,
+    paddingVertical: 4,
   },
   chip: {
-    margin: 2,
+    margin: 4,
     borderRadius: 16,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 0,
+    ...(Platform.OS === 'android' && {
+      height: 38, // 安卓上高度稍大
+      paddingBottom: 1,
+    }),
+    ...(Platform.OS === 'web' && {
+      height: 34, // Web上高度稍小
+    }),
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600', 
+    color: vibrantColors.textPrimary,
+    lineHeight: 18, // 行高调小
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    ...(Platform.OS === 'android' && { 
+      paddingTop: 2, 
+    }),
+    ...(Platform.OS === 'web' && { 
+      paddingBottom: 2, 
+    }),
+    ...(Platform.OS === 'ios' && {
+      lineHeight: 16,
+    }),
   },
   statusChip: {
-    height: 30,
-    borderRadius: 15,
+    height: 28, // 基础高度
+    borderRadius: 14,
     marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 0,
+    overflow: 'hidden',
+    paddingHorizontal: 10, // 水平内边距增加
+  },
+  androidStatusChip: {
+    height: 30, // 安卓高度稍大
+    paddingLeft: 6, // 图标左边距略小
+  },
+  iosStatusChip: {
+    height: 28, // iOS高度保持原样
+    paddingHorizontal: 8,
+  },
+  webStatusChip: {
+    height: 26, // web高度略小
+    paddingLeft: 6,
   },
   activeStatusChip: {
-    backgroundColor: vibrantColors.primary,
+    backgroundColor: vibrantColors.primaryLight,
+    borderWidth: 1,
+    borderColor: vibrantColors.primary,
   },
   inactiveStatusChip: {
     backgroundColor: vibrantColors.divider,
+    borderWidth: 1,
+    borderColor: vibrantColors.neutral,
   },
   sectionTitle: {
     marginBottom: 8,
@@ -437,6 +505,20 @@ const styles = StyleSheet.create({
   },
   medicineChip: {
     marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 36, // 基础高度
+    paddingVertical: 0,
+    ...(Platform.OS === 'android' && {
+      height: 38, // 安卓上高度稍大
+      paddingBottom: 1,
+    }),
+    ...(Platform.OS === 'web' && {
+      height: 34, // web上高度稍小
+    }),
+    ...(Platform.OS === 'ios' && {
+      height: 34, // iOS上高度也稍小
+    }),
   },
   medicineImage: {
     width: 60,

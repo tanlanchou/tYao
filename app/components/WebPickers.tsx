@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Modal, Text, TextInput } from 'react-native-paper';
+import vibrantColors from "../theme/colors";
 
 interface WebTimePickerProps {
   visible: boolean;
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
-    color: '#1976d2',
+    color: vibrantColors.primary,
   },
   modalContent: {
     gap: 8,
