@@ -1,8 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Chip, Dialog, IconButton, Portal, Text, useTheme } from 'react-native-paper';
+import { Image, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Button, Card, Dialog, IconButton, Portal, Switch, Text, useTheme } from 'react-native-paper';
 import { deleteAlarm, getAllAlarms, initDatabase, updateAlarmStatus } from '../services/database';
 import { cancelAlarmNotifications, scheduleAlarmNotifications } from '../services/notifications';
 import vibrantColors from '../theme/colors';
@@ -31,6 +31,9 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [alarmToDelete, setAlarmToDelete] = useState<number | null>(null);
+  const [expandedAlarm, setExpandedAlarm] = useState<number | null>(null);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const theme = useTheme();
 
   // 添加通知监听器
@@ -186,6 +189,19 @@ export default function HomeScreen() {
     }
   };
 
+  const toggleExpandAlarm = (id: number) => {
+    setExpandedAlarm(expandedAlarm === id ? null : id);
+  };
+
+  const handleImagePress = (imageUri: string) => {
+    setSelectedImage(imageUri);
+    setImageViewerVisible(true);
+  };
+
+  const closeImageViewer = () => {
+    setImageViewerVisible(false);
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -214,103 +230,173 @@ export default function HomeScreen() {
             <Card key={alarm.id} style={styles.card}>
               <Card.Content>
                 <View style={styles.cardHeader}>
-                  <Text variant="titleLarge" style={styles.alarmName}>
-                    {alarm.name}
-                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => handleEditAlarm(alarm.id)}
+                    activeOpacity={0.7}
+                    style={styles.cardTitleContainer}
+                  >
+                    <Text variant="titleLarge" style={styles.alarmName}>
+                      {alarm.name}
+                    </Text>
+                  </TouchableOpacity>
                   <View style={styles.iconButtonGroup}>
-                    <Chip
-                      icon={alarm.status === 1 ? "bell" : "bell-off"}
-                      onPress={() => handleToggleAlarmStatus(alarm)}
-                      style={[
-                        styles.statusChip,
-                        alarm.status === 1 ? styles.activeStatusChip : styles.inactiveStatusChip,
-                        Platform.OS === 'android' && styles.androidStatusChip,
-                        Platform.OS === 'ios' && styles.iosStatusChip,
-                        Platform.OS === 'web' && styles.webStatusChip
-                      ]}
-                      textStyle={{
-                        color: alarm.status === 1 ? vibrantColors.primary : vibrantColors.neutral,
-                        fontWeight: 'bold',
-                        fontSize: 13,
-                        includeFontPadding: false,
-                        ...(Platform.OS === 'android' && {
-                          paddingTop: 3,
-                          lineHeight: 12,
-                        }),
-                        ...(Platform.OS === 'ios' && {
-                          paddingBottom: 1,
-                        }),
-                        ...(Platform.OS === 'web' && {
-                          lineHeight: 20,
-                        }),
+                    <Switch
+                      value={alarm.status === 1}
+                      onValueChange={() => handleToggleAlarmStatus(alarm)}
+                      color={vibrantColors.primary}
+                    />
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  onPress={() => handleEditAlarm(alarm.id)}
+                  activeOpacity={0.7}
+                >
+                  {/* 预览信息 - 只显示最重要的信息 */}
+                  <View style={styles.previewInfo}>
+                    <View style={styles.previewItem}>
+                      <IconButton icon="clock-outline" size={16} iconColor={vibrantColors.secondary} style={styles.previewIcon} />
+                      <Text style={styles.previewText}>
+                        {alarm.reminder_times.map(formatTime).join('、')}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity 
+                      style={styles.expandButton} 
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        toggleExpandAlarm(alarm.id);
                       }}
-                      compact={true}
+                      activeOpacity={0.6}
                     >
-                      {alarm.status === 1 ? "已启用" : "已禁用"}
-                    </Chip>
-                    <IconButton
-                      icon="pencil"
-                      size={22}
-                      style={styles.iconButton}
-                      containerColor={vibrantColors.secondary}
-                      iconColor="#fff"
-                      onPress={() => handleEditAlarm(alarm.id)}
-                    />
-                    <IconButton
-                      icon="delete"
-                      size={22}
-                      style={styles.iconButton}
-                      containerColor={vibrantColors.error}
-                      iconColor="#fff"
-                      onPress={() => handleRequestDelete(alarm.id)}
-                    />
+                      <Text style={styles.expandButtonText}>
+                        {expandedAlarm === alarm.id ? "收起" : "详情"}
+                      </Text>
+                      <IconButton 
+                        icon={expandedAlarm === alarm.id ? "chevron-up" : "chevron-down"} 
+                        size={16} 
+                        iconColor="#fff"
+                        style={styles.expandIcon}
+                      />
+                    </TouchableOpacity>
                   </View>
-                </View>
-
-                <View style={styles.infoSection}>
-                  <Chip icon="calendar" style={[styles.chip, {backgroundColor: vibrantColors.primaryLight}]} textStyle={styles.chipText}>
-                    日期: {formatDate(alarm.reminder_date)}
-                  </Chip>
-                  <Chip icon="clock" style={[styles.chip, {backgroundColor: vibrantColors.secondaryLight}]} textStyle={styles.chipText}>
-                    时间: {alarm.reminder_times.map(formatTime).join('、')}
-                  </Chip>
-                  <Chip icon="repeat" style={[styles.chip, {backgroundColor: vibrantColors.accentLight}]} textStyle={styles.chipText}>
-                    重复: {getRepeatTypeText(alarm.repeat_type, alarm.custom_period, alarm.custom_days)}
-                  </Chip>
-                  {alarm.custom_days && Array.isArray(alarm.custom_days) && alarm.custom_days.length > 0 && (
-                    <Chip icon="calendar-clock" style={[styles.chip, {backgroundColor: vibrantColors.infoLight}]} textStyle={styles.chipText}>
-                      自定义天数: 第 {alarm.custom_days.join(', ')} 天
-                    </Chip>
-                  )}
-                </View>
-
-                <View style={styles.medicineSection}>
-                  <Text variant="titleMedium" style={styles.sectionTitle}>
-                    药品列表
-                  </Text>
-                  <View style={styles.medicineList}>
-                    {alarm.medicines.map((medicine) => (
-                      <View key={medicine.id} style={styles.medicineItem}>
-                        <Chip 
-                          icon="pill" 
-                          style={[styles.medicineChip, {backgroundColor: vibrantColors.successLight}]}
-                          textStyle={styles.chipText}
-                        >
-                          {medicine.name}
-                          {medicine.dosage && ` (${medicine.dosage})`}
-                        </Chip>
-                        {medicine.image && (
-                          <Image
-                            source={{ uri: medicine.image }}
-                            style={styles.medicineImage}
-                            resizeMode="cover"
-                          />
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                </View>
+                </TouchableOpacity>
               </Card.Content>
+              
+              {/* 展开的详情信息 */}
+              {expandedAlarm === alarm.id && (
+                <Card.Content style={styles.expandedContent}>
+                  <View style={styles.detailItem}>
+                    <View style={styles.detailRow}>
+                      <IconButton icon="calendar" size={20} iconColor={vibrantColors.primary} style={styles.detailIcon} />
+                      <View style={styles.detailContent}>
+                        <Text style={styles.detailLabel}>日期</Text>
+                        <Text style={styles.detailText}>{formatDate(alarm.reminder_date)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <View style={styles.detailRow}>
+                      <IconButton icon="clock" size={20} iconColor={vibrantColors.secondary} style={styles.detailIcon} />
+                      <View style={styles.detailContent}>
+                        <Text style={styles.detailLabel}>时间</Text>
+                        <Text style={styles.detailText}>{alarm.reminder_times.map(formatTime).join('、')}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <View style={styles.detailRow}>
+                      <IconButton icon="repeat" size={20} iconColor={vibrantColors.accent} style={styles.detailIcon} />
+                      <View style={styles.detailContent}>
+                        <Text style={styles.detailLabel}>重复</Text>
+                        <Text style={styles.detailText}>{getRepeatTypeText(alarm.repeat_type, alarm.custom_period, alarm.custom_days)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {alarm.custom_days && Array.isArray(alarm.custom_days) && alarm.custom_days.length > 0 && (
+                    <View style={styles.detailItem}>
+                      <View style={styles.detailRow}>
+                        <IconButton icon="calendar-clock" size={20} iconColor={vibrantColors.info} style={styles.detailIcon} />
+                        <View style={styles.detailContent}>
+                          <Text style={styles.detailLabel}>自定义天数</Text>
+                          <Text style={styles.detailText}>第 {alarm.custom_days.join(', ')} 天</Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.detailItem}>
+                    <View style={styles.detailRow}>
+                      <IconButton icon="pill" size={20} iconColor={vibrantColors.success} style={styles.detailIcon} />
+                      <View style={styles.detailContent}>
+                        <Text style={styles.detailLabel}>药品列表</Text>
+                      </View>
+                    </View>
+                    <View style={styles.medicineGrid}>
+                      {alarm.medicines.map((medicine) => (
+                        <View key={medicine.id} style={styles.medicineCard}>
+                                                      {medicine.image ? (
+                              <TouchableOpacity 
+                                onPress={() => medicine.image && handleImagePress(medicine.image)}
+                                activeOpacity={0.7}
+                              >
+                                <Image
+                                  source={{ uri: medicine.image }}
+                                  style={styles.medicineCardImage}
+                                  resizeMode="cover"
+                                />
+                                <View style={styles.imageIndicator}>
+                                  <IconButton icon="magnify" size={16} iconColor="#fff" style={{margin: 0}} />
+                                </View>
+                              </TouchableOpacity>
+                            ) : (
+                              <View style={[styles.medicineCardImagePlaceholder, {backgroundColor: vibrantColors.successLight}]}>
+                                <IconButton icon="pill" size={24} iconColor={vibrantColors.success} style={{margin: 0}} />
+                              </View>
+                            )}
+                            <View style={styles.medicineInfo}>
+                              <Text style={styles.medicineInfoLabel}>药品名称:</Text>
+                              <Text style={styles.medicineCardName} numberOfLines={1} ellipsizeMode="tail">
+                                {medicine.name}
+                              </Text>
+                            </View>
+                            {medicine.dosage && (
+                              <View style={styles.medicineInfo}>
+                                <Text style={styles.medicineInfoLabel}>剂量:</Text>
+                                <Text style={styles.medicineCardDosage}>{medicine.dosage}</Text>
+                              </View>
+                            )}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                  
+                  {/* 管理操作按钮 */}
+                  <View style={styles.actionsContainer}>
+                    <Button 
+                      mode="contained" 
+                      icon="pencil" 
+                      style={styles.actionButton}
+                      buttonColor={vibrantColors.secondary}
+                      onPress={() => handleEditAlarm(alarm.id)}
+                    >
+                      编辑
+                    </Button>
+                    <Button 
+                      mode="outlined" 
+                      icon="delete" 
+                      style={[styles.actionButton, {borderColor: vibrantColors.error}]}
+                      textColor={vibrantColors.error}
+                      onPress={() => handleRequestDelete(alarm.id)}
+                    >
+                      删除
+                    </Button>
+                  </View>
+                </Card.Content>
+              )}
             </Card>
           ))
         )}
@@ -320,22 +406,63 @@ export default function HomeScreen() {
         <Dialog
           visible={deleteDialogVisible}
           onDismiss={handleCancelDelete}
+          style={styles.deleteDialog}
         >
-          <Dialog.Title>确认删除</Dialog.Title>
+          <Dialog.Title style={styles.deleteDialogTitle}>确认删除</Dialog.Title>
           <Dialog.Content>
-            <Text>确定要删除这个闹钟吗？此操作无法撤销。</Text>
+            <Text style={styles.deleteDialogContent}>确定要删除这个闹钟吗？此操作无法撤销。</Text>
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={handleCancelDelete}>取消</Button>
+          <Dialog.Actions style={styles.deleteDialogActions}>
+            <Button 
+              onPress={handleCancelDelete}
+              mode="outlined"
+              style={styles.deleteDialogButton}
+            >
+              取消
+            </Button>
             <Button 
               onPress={() => alarmToDelete && handleDeleteAlarm(alarmToDelete)}
-              textColor={vibrantColors.error}
+              mode="contained"
+              buttonColor={vibrantColors.error}
+              textColor="#fff"
+              style={styles.deleteDialogButton}
             >
               删除
             </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* Image Viewer Modal */}
+      <Modal
+        visible={imageViewerVisible}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={closeImageViewer}
+      >
+        <View style={styles.imageViewerContainer}>
+          <TouchableOpacity 
+            style={styles.imageViewerBackground}
+            activeOpacity={1}
+            onPress={closeImageViewer}
+          >
+            {selectedImage && (
+              <Image 
+                source={{ uri: selectedImage }}
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            )}
+            <IconButton
+              icon="close"
+              size={24}
+              iconColor="#fff"
+              style={styles.closeButton}
+              onPress={closeImageViewer}
+            />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -374,28 +501,26 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 16,
-    elevation: 2,
     backgroundColor: vibrantColors.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
+    // 加深阴影效果
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    elevation: 5,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
     backgroundColor: vibrantColors.surface,
     padding: 12,
-    borderRadius: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: vibrantColors.divider,
+    paddingBottom: 8,
   },
   alarmName: {
     fontWeight: "bold",
@@ -406,11 +531,6 @@ const styles = StyleSheet.create({
   iconButtonGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-  },
-  iconButton: {
-    marginHorizontal: 0,
-    marginVertical: 0,
   },
   infoSection: {
     flexDirection: "row",
@@ -524,5 +644,235 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 8,
+  },
+
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 0,
+    marginBottom: 4,
+    paddingTop: 12,
+    paddingBottom: 8,
+    paddingHorizontal: 12,
+  },
+  actionButton: {
+    flex: 1,
+    marginHorizontal: 8,
+    borderRadius: 8,
+    borderColor: vibrantColors.primary,
+  },
+  expandedContent: {
+    padding: 0,
+    backgroundColor: vibrantColors.surface,
+  },
+  detailItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: vibrantColors.divider,
+    paddingBottom: 12,
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: vibrantColors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailIcon: {
+    margin: 0,
+    padding: 0,
+    marginRight: -4,
+  },
+  detailContent: {
+    flex: 1,
+    paddingVertical: 4,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: vibrantColors.textPrimary,
+  },
+  detailText: {
+    fontSize: 14,
+    color: vibrantColors.textSecondary,
+  },
+  medicineListContainer: {
+    marginTop: 12,
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 12,
+    ...Platform.OS !== 'web' ? {
+      elevation: 1,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    } : {
+      borderWidth: 1,
+      borderColor: vibrantColors.divider,
+    },
+  },
+  medicineListHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  medicineListTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: vibrantColors.textPrimary,
+    marginLeft: 8,
+  },
+  medicineGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+  },
+  medicineCard: {
+    width: '48%',
+    marginBottom: 12,
+    padding: 8,
+    backgroundColor: vibrantColors.surfaceLight,
+    borderRadius: 8,
+  },
+  medicineCardImage: {
+    width: '100%',
+    height: 90,
+    borderRadius: 6,
+  },
+  medicineCardImagePlaceholder: {
+    width: '100%',
+    height: 90,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medicineCardName: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: vibrantColors.textPrimary,
+    flex: 1,
+  },
+  medicineCardDosage: {
+    fontSize: 12,
+    color: vibrantColors.textPrimary,
+    flex: 1,
+  },
+  previewInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    paddingBottom: 8,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  previewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  previewIcon: {
+    margin: 0,
+    padding: 0,
+  },
+  previewText: {
+    fontSize: 14,
+    color: vibrantColors.textSecondary,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: vibrantColors.primary,
+    minWidth: 80,
+    justifyContent: 'center',
+  },
+  expandButtonText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  expandIcon: {
+    margin: 0,
+    padding: 0,
+  },
+  imageViewerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerBackground: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+  },
+  imageIndicator: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 12,
+    padding: 2,
+  },
+  medicineInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    width: '100%',
+  },
+  medicineInfoLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: vibrantColors.textSecondary,
+    marginRight: 4,
+  },
+  deleteDialog: {
+    backgroundColor: '#fff', 
+    borderRadius: 12,
+    elevation: 24,
+  },
+  deleteDialogTitle: {
+    textAlign: 'center',
+    fontSize: 18,
+    color: vibrantColors.textPrimary,
+  },
+  deleteDialogContent: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: vibrantColors.textSecondary,
+    paddingVertical: 8,
+  },
+  deleteDialogActions: {
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  deleteDialogButton: {
+    flex: 1,
+    marginHorizontal: 8,
+    borderRadius: 8,
+  },
+  cardTitleContainer: {
+    flex: 1,
   },
 });

@@ -1176,16 +1176,26 @@ export default function AddScreen() {
         <Dialog
           visible={deleteIndex !== null}
           onDismiss={handleCancelDeleteMedicine}
+          style={styles.deleteDialog}
         >
-          <Dialog.Title>确认删除</Dialog.Title>
+          <Dialog.Title style={styles.deleteDialogTitle}>确认删除</Dialog.Title>
           <Dialog.Content>
-            <Text>确定要删除该药品吗？此操作无法撤销。</Text>
+            <Text style={styles.deleteDialogContent}>确定要删除该药品吗？此操作无法撤销。</Text>
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={handleCancelDeleteMedicine}>取消</Button>
+          <Dialog.Actions style={styles.deleteDialogActions}>
+            <Button 
+              onPress={handleCancelDeleteMedicine}
+              mode="outlined"
+              style={styles.deleteDialogButton}
+            >
+              取消
+            </Button>
             <Button
               onPress={handleConfirmDeleteMedicine}
-              textColor="#d32f2f"
+              mode="contained"
+              buttonColor={vibrantColors.error}
+              textColor="#fff"
+              style={styles.deleteDialogButton}
             >
               删除
             </Button>
@@ -1195,16 +1205,26 @@ export default function AddScreen() {
         <Dialog
           visible={isDeleteAlarmDialogVisible}
           onDismiss={handleCancelDeleteAlarm}
+          style={styles.deleteDialog}
         >
-          <Dialog.Title>确认删除闹钟</Dialog.Title>
+          <Dialog.Title style={styles.deleteDialogTitle}>确认删除闹钟</Dialog.Title>
           <Dialog.Content>
-            <Text>确定要删除整个闹钟吗？此操作将删除所有相关药品及提醒，且无法撤销。</Text>
+            <Text style={styles.deleteDialogContent}>确定要删除整个闹钟吗？此操作将删除所有相关药品及提醒，且无法撤销。</Text>
           </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={handleCancelDeleteAlarm}>取消</Button>
+          <Dialog.Actions style={styles.deleteDialogActions}>
+            <Button 
+              onPress={handleCancelDeleteAlarm}
+              mode="outlined"
+              style={styles.deleteDialogButton}
+            >
+              取消
+            </Button>
             <Button
               onPress={handleDeleteAlarm}
-              textColor="#d32f2f"
+              mode="contained"
+              buttonColor={vibrantColors.error}
+              textColor="#fff"
+              style={styles.deleteDialogButton}
             >
               删除
             </Button>
@@ -2419,5 +2439,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  // 删除确认对话框样式
+  deleteDialog: {
+    backgroundColor: '#fff', 
+    borderRadius: 12,
+    elevation: 24,
+  },
+  deleteDialogTitle: {
+    textAlign: 'center',
+    fontSize: 18,
+    color: vibrantColors.textPrimary,
+  },
+  deleteDialogContent: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: vibrantColors.textSecondary,
+    paddingVertical: 8,
+  },
+  deleteDialogActions: {
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  deleteDialogButton: {
+    flex: 1,
+    marginHorizontal: 8,
+    borderRadius: 8,
   },
 });
