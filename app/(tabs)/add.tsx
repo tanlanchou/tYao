@@ -1,8 +1,8 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Image, Platform, ScrollView, StyleSheet, View } from "react-native";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
+import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import DatePicker from 'react-native-date-picker';
 import {
     Button,
     Checkbox,
@@ -84,6 +84,97 @@ export default function AddScreen() {
 
   // 添加 Web 日期选择器状态
   const [isWebDatePickerVisible, setIsWebDatePickerVisible] = useState(false);
+
+  // 添加新的状态变量用于备用选择器
+  const [showBackupDatePicker, setShowBackupDatePicker] = useState(false);
+  const [showBackupTimePicker, setShowBackupTimePicker] = useState(false);
+  const [useBackupPicker, setUseBackupPicker] = useState(Platform.OS === 'android'); // 在Android上默认使用备用选择器
+
+  // 备用选择器的处理函数
+  const [tempDate, setTempDate] = useState<Date | null>(null);
+  const [tempTime, setTempTime] = useState<Date | null>(null);
+
+  // 自定义日期选择器
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [showCustomTimePicker, setShowCustomTimePicker] = useState(false);
+  const [tempYear, setTempYear] = useState(new Date().getFullYear());
+  const [tempMonth, setTempMonth] = useState(new Date().getMonth() + 1);
+  const [tempDay, setTempDay] = useState(new Date().getDate());
+  const [tempHour, setTempHour] = useState(new Date().getHours());
+  const [tempMinute, setTempMinute] = useState(new Date().getMinutes());
+  
+  // 添加ScrollView引用
+  const yearScrollRef = useRef<ScrollView>(null);
+  const monthScrollRef = useRef<ScrollView>(null);
+  const dayScrollRef = useRef<ScrollView>(null);
+  const hourScrollRef = useRef<ScrollView>(null);
+  const minuteScrollRef = useRef<ScrollView>(null);
+  
+  // 初始化临时日期时间并滚动到选中位置
+  useEffect(() => {
+    if (showCustomDatePicker) {
+      const year = reminderDate.getFullYear();
+      const month = reminderDate.getMonth() + 1;
+      const day = reminderDate.getDate();
+      
+      setTempYear(year);
+      setTempMonth(month);
+      setTempDay(day);
+      
+      // 延迟滚动，确保组件已渲染
+      setTimeout(() => {
+        const yearIndex = year - (new Date().getFullYear() - 5);
+        const monthIndex = month - 1;
+        const dayIndex = day - 1;
+        
+        yearScrollRef.current?.scrollTo({ y: yearIndex * 40, animated: false });
+        monthScrollRef.current?.scrollTo({ y: monthIndex * 40, animated: false });
+        dayScrollRef.current?.scrollTo({ y: dayIndex * 40, animated: false });
+      }, 100);
+    }
+  }, [showCustomDatePicker, reminderDate]);
+  
+  useEffect(() => {
+    if (showCustomTimePicker && currentTimeIndex < reminderTimes.length) {
+      const currentTime = reminderTimes[currentTimeIndex];
+      const hour = currentTime.getHours();
+      const minute = currentTime.getMinutes();
+      
+      setTempHour(hour);
+      setTempMinute(minute);
+      
+      // 延迟滚动，确保组件已渲染
+      setTimeout(() => {
+        hourScrollRef.current?.scrollTo({ y: hour * 40, animated: false });
+        minuteScrollRef.current?.scrollTo({ y: minute * 40, animated: false });
+      }, 100);
+    }
+  }, [showCustomTimePicker, currentTimeIndex, reminderTimes]);
+  
+  const handleYearChange = (year: number) => {
+    setTempYear(year);
+    yearScrollRef.current?.scrollTo({ y: (year - (new Date().getFullYear() - 5)) * 40, animated: true });
+  };
+  
+  const handleMonthChange = (month: number) => {
+    setTempMonth(month);
+    monthScrollRef.current?.scrollTo({ y: (month - 1) * 40, animated: true });
+  };
+  
+  const handleDayChange = (day: number) => {
+    setTempDay(day);
+    dayScrollRef.current?.scrollTo({ y: (day - 1) * 40, animated: true });
+  };
+  
+  const handleHourChange = (hour: number) => {
+    setTempHour(hour);
+    hourScrollRef.current?.scrollTo({ y: hour * 40, animated: true });
+  };
+  
+  const handleMinuteChange = (minute: number) => {
+    setTempMinute(minute);
+    minuteScrollRef.current?.scrollTo({ y: minute * 40, animated: true });
+  };
 
   const theme = useTheme();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -507,8 +598,16 @@ export default function AddScreen() {
   const handleDatePress = () => {
     if (Platform.OS === "web") {
       setIsWebDatePickerVisible(true);
+    } else if (Platform.OS === "android") {
+      // 在Android上使用自定义日期选择器
+      setShowCustomDatePicker(true);
     } else {
-      setDatePickerVisible(true);
+      try {
+        setDatePickerVisible(true);
+      } catch (error) {
+        console.error("Error showing date picker:", error);
+        setShowCustomDatePicker(true);
+      }
     }
   };
 
@@ -516,6 +615,7 @@ export default function AddScreen() {
     setReminderDate(date);
     setDatePickerVisible(false);
     setIsWebDatePickerVisible(false);
+    setShowBackupDatePicker(false);
   };
 
   // 修改时间选择处理函数
@@ -523,8 +623,16 @@ export default function AddScreen() {
     setCurrentTimeIndex(index);
     if (Platform.OS === "web") {
       setIsWebTimePickerVisible(true);
+    } else if (Platform.OS === "android") {
+      // 在Android上使用自定义时间选择器
+      setShowCustomTimePicker(true);
     } else {
-      setTimePickerVisible(true);
+      try {
+        setTimePickerVisible(true);
+      } catch (error) {
+        console.error("Error showing time picker:", error);
+        setShowCustomTimePicker(true);
+      }
     }
   };
 
@@ -534,6 +642,45 @@ export default function AddScreen() {
     setReminderTimes(newTimes);
     setTimePickerVisible(false);
     setIsWebTimePickerVisible(false);
+    setShowBackupTimePicker(false);
+  };
+
+  // 备用选择器的处理函数
+  const handleBackupDateChange = (event: any, selectedDate?: Date) => {
+    if (selectedDate) {
+      setTempDate(selectedDate);
+    }
+  };
+
+  const handleBackupTimeChange = (event: any, selectedTime?: Date) => {
+    if (selectedTime) {
+      setTempTime(selectedTime);
+    }
+  };
+
+  const handleBackupDateConfirm = () => {
+    if (tempDate) {
+      setReminderDate(tempDate);
+    }
+    setTempDate(null);
+    setShowBackupDatePicker(false);
+  };
+
+  const handleBackupTimeConfirm = () => {
+    if (tempTime) {
+      const newTimes = [...reminderTimes];
+      newTimes[currentTimeIndex] = tempTime;
+      setReminderTimes(newTimes);
+    }
+    setTempTime(null);
+    setShowBackupTimePicker(false);
+  };
+
+  const handleBackupCancel = () => {
+    setTempDate(null);
+    setTempTime(null);
+    setShowBackupDatePicker(false);
+    setShowBackupTimePicker(false);
   };
 
   const handleAddTime = () => {
@@ -638,6 +785,50 @@ export default function AddScreen() {
   const handleCancelDeleteAlarm = () => {
     setIsDeleteAlarmDialogVisible(false);
   };
+
+  // 生成年、月、日、时、分的选项
+  const generateYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+      years.push(i);
+    }
+    return years;
+  };
+  
+  const generateMonths = () => {
+    return Array.from({ length: 12 }, (_, i) => i + 1);
+  };
+  
+  const generateDays = () => {
+    const daysInMonth = new Date(tempYear, tempMonth, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  };
+  
+  const generateHours = () => {
+    return Array.from({ length: 24 }, (_, i) => i);
+  };
+  
+  const generateMinutes = () => {
+    return Array.from({ length: 60 }, (_, i) => i);
+  };
+  
+  const renderPickerItem = (value: number, isSelected: boolean) => (
+    <TouchableOpacity
+      key={value}
+      style={[
+        styles.pickerItem,
+        isSelected && styles.pickerItemSelected
+      ]}
+    >
+      <Text style={[
+        styles.pickerItemText,
+        isSelected && styles.pickerItemTextSelected
+      ]}>
+        {value.toString().padStart(2, '0')}
+      </Text>
+    </TouchableOpacity>
+  );
 
   if (loading) {
     return (
@@ -1034,23 +1225,224 @@ export default function AddScreen() {
             </Button>
           </View>
         </Modal>
-        {Platform.OS !== "web" && (
-          <DateTimePickerModal
-            isVisible={isDatePickerVisible}
+        {Platform.OS !== "web" && !showCustomDatePicker && !showCustomTimePicker && (
+          <DatePicker
+            modal
+            open={isDatePickerVisible}
+            date={reminderDate}
             mode="date"
             onConfirm={handleDateConfirm}
             onCancel={() => setDatePickerVisible(false)}
+            title="选择日期"
+            confirmText="确定"
+            cancelText="取消"
+            locale="zh"
           />
         )}
-        {Platform.OS !== "web" && (
-          <DateTimePickerModal
-            isVisible={isTimePickerVisible}
+        {Platform.OS !== "web" && !showCustomDatePicker && !showCustomTimePicker && (
+          <DatePicker
+            modal
+            open={isTimePickerVisible}
+            date={reminderTimes[currentTimeIndex] || new Date()}
             mode="time"
             onConfirm={handleTimeConfirm}
             onCancel={() => setTimePickerVisible(false)}
-            date={reminderTimes[currentTimeIndex] || new Date()}
+            title="选择时间"
+            confirmText="确定"
+            cancelText="取消"
+            locale="zh"
           />
         )}
+        
+        {/* 自定义日期选择器 */}
+        <Dialog
+          visible={showCustomDatePicker}
+          onDismiss={() => setShowCustomDatePicker(false)}
+          style={styles.customPickerDialog}
+        >
+          <Dialog.Title>选择日期</Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.customPickerContainer}>
+              <View style={styles.customPickerColumn}>
+                <Text style={styles.customPickerLabel}>年</Text>
+                <ScrollView 
+                  ref={yearScrollRef}
+                  style={styles.customPickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
+                >
+                  {generateYears().map(year => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[
+                        styles.pickerItem,
+                        year === tempYear && styles.pickerItemSelected
+                      ]}
+                      onPress={() => handleYearChange(year)}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        year === tempYear && styles.pickerItemTextSelected
+                      ]}>
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+              
+              <View style={styles.customPickerColumn}>
+                <Text style={styles.customPickerLabel}>月</Text>
+                <ScrollView 
+                  ref={monthScrollRef}
+                  style={styles.customPickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
+                >
+                  {generateMonths().map(month => (
+                    <TouchableOpacity
+                      key={month}
+                      style={[
+                        styles.pickerItem,
+                        month === tempMonth && styles.pickerItemSelected
+                      ]}
+                      onPress={() => handleMonthChange(month)}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        month === tempMonth && styles.pickerItemTextSelected
+                      ]}>
+                        {month.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+              
+              <View style={styles.customPickerColumn}>
+                <Text style={styles.customPickerLabel}>日</Text>
+                <ScrollView 
+                  ref={dayScrollRef}
+                  style={styles.customPickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
+                >
+                  {generateDays().map(day => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.pickerItem,
+                        day === tempDay && styles.pickerItemSelected
+                      ]}
+                      onPress={() => handleDayChange(day)}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        day === tempDay && styles.pickerItemTextSelected
+                      ]}>
+                        {day.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowCustomDatePicker(false)}>取消</Button>
+            <Button onPress={() => {
+              const newDate = new Date(tempYear, tempMonth - 1, tempDay);
+              setReminderDate(newDate);
+              setShowCustomDatePicker(false);
+            }}>确定</Button>
+          </Dialog.Actions>
+        </Dialog>
+        
+        {/* 自定义时间选择器 */}
+        <Dialog
+          visible={showCustomTimePicker}
+          onDismiss={() => setShowCustomTimePicker(false)}
+          style={styles.customPickerDialog}
+        >
+          <Dialog.Title>选择时间</Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.customPickerContainer}>
+              <View style={styles.customPickerColumn}>
+                <Text style={styles.customPickerLabel}>时</Text>
+                <ScrollView 
+                  ref={hourScrollRef}
+                  style={styles.customPickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
+                >
+                  {generateHours().map(hour => (
+                    <TouchableOpacity
+                      key={hour}
+                      style={[
+                        styles.pickerItem,
+                        hour === tempHour && styles.pickerItemSelected
+                      ]}
+                      onPress={() => handleHourChange(hour)}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        hour === tempHour && styles.pickerItemTextSelected
+                      ]}>
+                        {hour.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+              
+              <View style={styles.customPickerColumn}>
+                <Text style={styles.customPickerLabel}>分</Text>
+                <ScrollView 
+                  ref={minuteScrollRef}
+                  style={styles.customPickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pickerContentContainer}
+                >
+                  {generateMinutes().map(minute => (
+                    <TouchableOpacity
+                      key={minute}
+                      style={[
+                        styles.pickerItem,
+                        minute === tempMinute && styles.pickerItemSelected
+                      ]}
+                      onPress={() => handleMinuteChange(minute)}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        minute === tempMinute && styles.pickerItemTextSelected
+                      ]}>
+                        {minute.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowCustomTimePicker(false)}>取消</Button>
+            <Button onPress={() => {
+              const currentTime = new Date(reminderTimes[currentTimeIndex]);
+              const newTime = new Date(
+                currentTime.getFullYear(),
+                currentTime.getMonth(),
+                currentTime.getDate(),
+                tempHour,
+                tempMinute
+              );
+              
+              const newTimes = [...reminderTimes];
+              newTimes[currentTimeIndex] = newTime;
+              setReminderTimes(newTimes);
+              setShowCustomTimePicker(false);
+            }}>确定</Button>
+          </Dialog.Actions>
+        </Dialog>
         {Platform.OS === "web" && (
           <WebDatePicker
             visible={isWebDatePickerVisible}
@@ -1512,5 +1904,63 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  pickerDialog: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+  },
+  pickerContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  picker: {
+    width: '100%',
+  },
+  customPickerDialog: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    width: '80%',
+    alignSelf: 'center',
+  },
+  customPickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    height: 200,
+  },
+  customPickerColumn: {
+    alignItems: 'center',
+    height: '100%',
+    flex: 1,
+  },
+  customPickerLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  customPickerScroll: {
+    height: 150,
+    width: '100%',
+  },
+  pickerItem: {
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  pickerItemSelected: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+  },
+  pickerItemText: {
+    fontSize: 18,
+  },
+  pickerItemTextSelected: {
+    fontWeight: 'bold',
+    color: '#1976d2',
+  },
+  pickerContentContainer: {
+    paddingVertical: 55, // 添加上下内边距，使选中项可以居中显示
   },
 });
