@@ -5,6 +5,7 @@ import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Chip, Dialog, IconButton, Portal, Text, useTheme } from 'react-native-paper';
 import { deleteAlarm, getAllAlarms, initDatabase, updateAlarmStatus } from '../services/database';
 import { cancelAlarmNotifications, scheduleAlarmNotifications } from '../services/notifications';
+import vibrantColors from '../theme/colors';
 
 interface Alarm {
   id: number;
@@ -203,6 +204,7 @@ export default function HomeScreen() {
               mode="contained"
               onPress={() => router.push('/(tabs)/add')}
               style={styles.addButton}
+              buttonColor={vibrantColors.primary}
             >
               添加闹钟
             </Button>
@@ -223,6 +225,9 @@ export default function HomeScreen() {
                         styles.statusChip,
                         alarm.status === 1 ? styles.activeStatusChip : styles.inactiveStatusChip
                       ]}
+                      textStyle={{
+                        color: alarm.status === 1 ? vibrantColors.textLight : vibrantColors.neutral
+                      }}
                     >
                       {alarm.status === 1 ? "已启用" : "已禁用"}
                     </Chip>
@@ -230,7 +235,7 @@ export default function HomeScreen() {
                       icon="pencil"
                       size={22}
                       style={styles.iconButton}
-                      containerColor={theme.colors.primary}
+                      containerColor={vibrantColors.secondary}
                       iconColor="#fff"
                       onPress={() => handleEditAlarm(alarm.id)}
                     />
@@ -238,7 +243,7 @@ export default function HomeScreen() {
                       icon="delete"
                       size={22}
                       style={styles.iconButton}
-                      containerColor={theme.colors.error}
+                      containerColor={vibrantColors.error}
                       iconColor="#fff"
                       onPress={() => handleRequestDelete(alarm.id)}
                     />
@@ -246,17 +251,17 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={styles.infoSection}>
-                  <Chip icon="calendar" style={styles.chip}>
+                  <Chip icon="calendar" style={[styles.chip, {backgroundColor: vibrantColors.primaryLight}]}>
                     日期: {formatDate(alarm.reminder_date)}
                   </Chip>
-                  <Chip icon="clock" style={styles.chip}>
+                  <Chip icon="clock" style={[styles.chip, {backgroundColor: vibrantColors.secondaryLight}]}>
                     时间: {alarm.reminder_times.map(formatTime).join('、')}
                   </Chip>
-                  <Chip icon="repeat" style={styles.chip}>
+                  <Chip icon="repeat" style={[styles.chip, {backgroundColor: vibrantColors.accentLight}]}>
                     重复: {getRepeatTypeText(alarm.repeat_type, alarm.custom_period, alarm.custom_days)}
                   </Chip>
                   {alarm.custom_days && Array.isArray(alarm.custom_days) && alarm.custom_days.length > 0 && (
-                    <Chip icon="calendar-clock" style={styles.chip}>
+                    <Chip icon="calendar-clock" style={[styles.chip, {backgroundColor: vibrantColors.infoLight}]}>
                       自定义天数: 第 {alarm.custom_days.join(', ')} 天
                     </Chip>
                   )}
@@ -271,7 +276,7 @@ export default function HomeScreen() {
                       <View key={medicine.id} style={styles.medicineItem}>
                         <Chip 
                           icon="pill" 
-                          style={styles.medicineChip}
+                          style={[styles.medicineChip, {backgroundColor: vibrantColors.successLight}]}
                         >
                           {medicine.name}
                           {medicine.dosage && ` (${medicine.dosage})`}
@@ -306,7 +311,7 @@ export default function HomeScreen() {
             <Button onPress={handleCancelDelete}>取消</Button>
             <Button 
               onPress={() => alarmToDelete && handleDeleteAlarm(alarmToDelete)}
-              textColor={theme.colors.error}
+              textColor={vibrantColors.error}
             >
               删除
             </Button>
@@ -320,7 +325,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: vibrantColors.surfaceLight,
     padding: 16,
   },
   emptyContainer: {
@@ -328,18 +333,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingTop: 100,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: vibrantColors.surfaceLight,
     padding: 16,
     borderRadius: 8,
   },
   emptyText: {
     fontSize: 18,
-    color: "#666",
+    color: vibrantColors.textSecondary,
     marginBottom: 16,
   },
   addButton: {
     marginTop: 16,
-    backgroundColor: "#1976d2",
+    borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -352,38 +357,33 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
     elevation: 2,
-    backgroundColor: "#e8f4fd",
-    borderRadius: 8,
+    backgroundColor: vibrantColors.surface,
+    borderRadius: 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
-    backgroundColor: "#fff",
+    backgroundColor: vibrantColors.surface,
     padding: 12,
     borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: vibrantColors.divider,
   },
   alarmName: {
     fontWeight: "bold",
     flex: 1,
     marginRight: 8,
+    color: vibrantColors.textPrimary,
   },
   iconButtonGroup: {
     flexDirection: "row",
@@ -399,67 +399,48 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
     marginBottom: 16,
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   chip: {
-    marginBottom: 8,
+    margin: 2,
+    borderRadius: 16,
   },
-  medicineSection: {
-    marginTop: 12,
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  statusChip: {
+    height: 30,
+    borderRadius: 15,
+    marginRight: 8,
+  },
+  activeStatusChip: {
+    backgroundColor: vibrantColors.primary,
+  },
+  inactiveStatusChip: {
+    backgroundColor: vibrantColors.divider,
   },
   sectionTitle: {
     marginBottom: 8,
+    color: vibrantColors.neutral,
     fontWeight: "bold",
   },
+  medicineSection: {
+    backgroundColor: vibrantColors.surfaceLight,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
   medicineList: {
-    gap: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   medicineItem: {
-    backgroundColor: "#f0f0f0",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    elevation: 1,
-  },
-  medicineImage: {
-    width: "100%",
-    height: 200,
-    borderRadius: 8,
-    marginTop: 12,
+    alignItems: "center",
+    marginBottom: 8,
   },
   medicineChip: {
-    alignSelf: "flex-start",
+    marginBottom: 4,
   },
-  statusChip: {
-    marginRight: 8,
-    height: 32,
-  },
-  activeStatusChip: {
-    backgroundColor: "#4caf50",
-  },
-  inactiveStatusChip: {
-    backgroundColor: "#9e9e9e",
+  medicineImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
   },
 });

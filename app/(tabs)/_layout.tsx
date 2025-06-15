@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from 'react-native-paper';
+import vibrantColors from '../theme/colors';
 
 export default function TabLayout() {
   const theme = useTheme();
@@ -20,19 +21,33 @@ export default function TabLayout() {
           backgroundColor: theme.colors.surface,
           height: 60,
           position: 'relative',
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
         headerStyle: {
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.primary,
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
         },
-        headerTintColor: theme.colors.onSurface,
+        headerTintColor: vibrantColors.textLight,
         headerTitleAlign: 'center',
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: '服药闹钟',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" size={size} color={color} />
+            <MaterialCommunityIcons name="pill" size={size} color={color} />
           ),
         }}
       />
@@ -42,11 +57,14 @@ export default function TabLayout() {
           title: '添加',
           tabBarIcon: ({ color, size, focused }) => (
             <View style={styles.addButtonContainer}>
-              <View style={[styles.addButton, focused && styles.addButtonActive]}>
+              <View style={[
+                styles.addButton, 
+                { backgroundColor: focused ? vibrantColors.primary : vibrantColors.surface }
+              ]}>
                 <MaterialCommunityIcons 
                   name="plus" 
                   size={size * 1.2} 
-                  color={focused ? '#fff' : color} 
+                  color={focused ? vibrantColors.textLight : vibrantColors.primary} 
                 />
               </View>
             </View>
@@ -55,7 +73,7 @@ export default function TabLayout() {
             <MaterialCommunityIcons
               name="arrow-left"
               size={28}
-              color={theme.colors.onSurface}
+              color={vibrantColors.textLight}
               style={{ marginLeft: 12 }}
               onPress={() => {
                 if (router.canGoBack()) {
@@ -98,7 +116,7 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -30 }], // 按钮宽度的一半
   },
   addButton: {
-    backgroundColor: '#fff',
+    backgroundColor: vibrantColors.surface,
     borderRadius: 30,
     width: 60,
     height: 60,
@@ -112,9 +130,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-  },
-  addButtonActive: {
-    backgroundColor: '#2196F3',
+    borderWidth: 2,
+    borderColor: vibrantColors.primary,
   },
 });
 

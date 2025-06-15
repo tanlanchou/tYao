@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
@@ -11,6 +11,22 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import NotificationPermissionScreen from './components/NotificationPermissionScreen';
 import { isBrowser, isBrowserNotificationSupported, startBrowserNotificationService, stopBrowserNotificationService } from './services/browserNotifications';
+import vibrantColors from './theme/colors';
+import vibrantTheme from './theme/theme';
+
+// 创建导航主题以匹配我们的活泼主题
+const vibrantNavigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: vibrantColors.primary,
+    background: vibrantColors.background,
+    card: vibrantColors.surface,
+    text: vibrantColors.textPrimary,
+    border: vibrantColors.divider,
+    notification: vibrantColors.primary,
+  }
+};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -72,7 +88,7 @@ export default function RootLayout() {
   // 浏览器环境下且没有通知权限
   if (isBrowser && hasNotificationPermission === false) {
     return (
-      <PaperProvider>
+      <PaperProvider theme={vibrantTheme}>
         <View style={styles.pageContainer}>
           <View style={styles.contentContainer}>
             <NotificationPermissionScreen onPermissionGranted={handlePermissionGranted} />
@@ -83,8 +99,8 @@ export default function RootLayout() {
   }
 
   return (
-    <PaperProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <PaperProvider theme={vibrantTheme}>
+      <ThemeProvider value={vibrantNavigationTheme}>
         <View style={styles.pageContainer}>
           <View style={styles.contentContainer}>
             <Stack>
@@ -102,14 +118,14 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   pageContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: vibrantColors.surfaceLight,
   },
   contentContainer: {
     flex: 1,
     maxWidth: 600, // 设置最大宽度
     width: '100%',
     alignSelf: 'center', // 在大屏幕上居中
-    backgroundColor: '#ffffff', // 内容区域背景色
+    backgroundColor: vibrantColors.background, // 内容区域背景色
     ...(Platform.OS === 'web' ? {
       // Web端特定样式
       boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',

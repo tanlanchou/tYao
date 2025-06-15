@@ -5,7 +5,6 @@ import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 
 import DatePicker from 'react-native-date-picker';
 import {
     Button,
-    Checkbox,
     Chip,
     Dialog,
     IconButton,
@@ -14,7 +13,7 @@ import {
     Switch,
     Text,
     TextInput,
-    useTheme,
+    useTheme
 } from "react-native-paper";
 import MedicineForm, { MedicineData } from "../components/MedicineForm";
 import { WebDatePicker, WebTimePicker } from "../components/WebPickers";
@@ -847,6 +846,79 @@ export default function AddScreen() {
     </TouchableOpacity>
   );
 
+  // 添加预设模板状态
+  const [customTemplateType, setCustomTemplateType] = useState<string>('custom');
+  
+  // 处理预设模板选择
+  const handleTemplateSelect = (template: string) => {
+    setCustomTemplateType(template);
+    
+    switch (template) {
+      case 'everyday':
+        setCustomPeriod(1);
+        setCustomDays([1]);
+        break;
+      case 'everyOtherDay':
+        setCustomPeriod(2);
+        setCustomDays([1]);
+        break;
+      case 'everyThirdDay':
+        setCustomPeriod(3);
+        setCustomDays([1]);
+        break;
+      case 'workdays':
+        setCustomPeriod(7);
+        setCustomDays([1, 2, 3, 4, 5]); // 周一到周五
+        break;
+      case 'weekends':
+        setCustomPeriod(7);
+        setCustomDays([6, 7]); // 周六和周日
+        break;
+      case 'custom':
+        // 保持当前设置或重置
+        break;
+    }
+  };
+  
+  // 获取自定义周期的描述文本
+  const getCustomPeriodDescription = () => {
+    switch (customTemplateType) {
+      case 'everyday':
+        return '每天';
+      case 'everyOtherDay':
+        return '每隔一天';
+      case 'everyThirdDay':
+        return '每隔两天';
+      case 'workdays':
+        return '工作日（周一至周五）';
+      case 'weekends':
+        return '周末（周六和周日）';
+      case 'custom':
+        if (customPeriod > 0 && customDays.length > 0) {
+          if (customPeriod === 7 && customDays.length === 1) {
+            const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+            return `每周${dayNames[customDays[0]]}`;
+          } else {
+            return `每${customPeriod}天的第${customDays.join('、')}天`;
+          }
+        }
+        return '自定义';
+    }
+  };
+  
+  // 定义更活泼的颜色方案
+  const vibrantColors = {
+    primary: '#FF6B6B', // 鲜红色
+    secondary: '#4ECDC4', // 青绿色
+    accent: '#FFD166', // 明黄色
+    neutral: '#292F36', // 深灰色
+    light: '#F7FFF7', // 浅白色
+    success: '#06D6A0', // 绿色
+    warning: '#FFD166', // 黄色
+    error: '#EF476F', // 粉红色
+    info: '#118AB2', // 蓝色
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -983,13 +1055,8 @@ export default function AddScreen() {
               style={[styles.input, styles.buttonWithShadow]}
               icon="calendar-clock"
             >
-              选择自定义重复周期
+              自定义重复: {getCustomPeriodDescription()}
             </Button>
-          )}
-          {repeatType === "custom" && customDays.length > 0 && (
-            <Text style={styles.selectedDateText}>
-              自定义重复周期: {customPeriod}天，第 {customDays.join(", ")} 天
-            </Text>
           )}
         </View>
 
@@ -1209,47 +1276,188 @@ export default function AddScreen() {
           ]}
         >
           <Text style={styles.modalTitle}>自定义重复周期</Text>
-          <View style={styles.modalContent}>
-            <TextInput
-              label="周期（1-14天）"
-              value={customPeriod === 0 ? "" : customPeriod.toString()}
-              onChangeText={handleCustomPeriodChange}
-              keyboardType="numeric"
-              style={styles.input}
-              maxLength={2}
-              placeholder="请输入1-14之间的数字"
-              mode="outlined"
-            />
-            <View style={styles.checkboxContainer}>
-              {Array.from({ length: customPeriod }, (_, i) => i + 1).map(
-                (day) => (
-                  <View key={day} style={styles.checkboxItem}>
-                    <Checkbox
-                      status={
-                        customDays.includes(day) ? "checked" : "unchecked"
-                      }
-                      onPress={() => handleCustomDayToggle(day)}
-                    />
-                    <Text>第 {day} 天</Text>
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScrollView}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalSubtitle}>选择常用模板</Text>
+              <View style={styles.templateContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.templateChip,
+                    customTemplateType === 'everyday' && styles.selectedTemplateChip,
+                    { backgroundColor: customTemplateType === 'everyday' ? vibrantColors.primary : 'rgba(255, 107, 107, 0.1)' }
+                  ]}
+                  onPress={() => handleTemplateSelect('everyday')}
+                >
+                  <Text style={[
+                    styles.templateChipText,
+                    customTemplateType === 'everyday' && styles.selectedTemplateChipText,
+                    { color: customTemplateType === 'everyday' ? 'white' : vibrantColors.primary }
+                  ]}>每天</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.templateChip,
+                    customTemplateType === 'everyOtherDay' && styles.selectedTemplateChip,
+                    { backgroundColor: customTemplateType === 'everyOtherDay' ? vibrantColors.secondary : 'rgba(78, 205, 196, 0.1)' }
+                  ]}
+                  onPress={() => handleTemplateSelect('everyOtherDay')}
+                >
+                  <Text style={[
+                    styles.templateChipText,
+                    customTemplateType === 'everyOtherDay' && styles.selectedTemplateChipText,
+                    { color: customTemplateType === 'everyOtherDay' ? 'white' : vibrantColors.secondary }
+                  ]}>每隔一天</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.templateChip,
+                    customTemplateType === 'everyThirdDay' && styles.selectedTemplateChip,
+                    { backgroundColor: customTemplateType === 'everyThirdDay' ? vibrantColors.accent : 'rgba(255, 209, 102, 0.1)' }
+                  ]}
+                  onPress={() => handleTemplateSelect('everyThirdDay')}
+                >
+                  <Text style={[
+                    styles.templateChipText,
+                    customTemplateType === 'everyThirdDay' && styles.selectedTemplateChipText,
+                    { color: customTemplateType === 'everyThirdDay' ? 'white' : vibrantColors.accent }
+                  ]}>每隔两天</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.templateChip,
+                    customTemplateType === 'workdays' && styles.selectedTemplateChip,
+                    { backgroundColor: customTemplateType === 'workdays' ? vibrantColors.info : 'rgba(17, 138, 178, 0.1)' }
+                  ]}
+                  onPress={() => handleTemplateSelect('workdays')}
+                >
+                  <Text style={[
+                    styles.templateChipText,
+                    customTemplateType === 'workdays' && styles.selectedTemplateChipText,
+                    { color: customTemplateType === 'workdays' ? 'white' : vibrantColors.info }
+                  ]}>工作日</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.templateChip,
+                    customTemplateType === 'weekends' && styles.selectedTemplateChip,
+                    { backgroundColor: customTemplateType === 'weekends' ? vibrantColors.success : 'rgba(6, 214, 160, 0.1)' }
+                  ]}
+                  onPress={() => handleTemplateSelect('weekends')}
+                >
+                  <Text style={[
+                    styles.templateChipText,
+                    customTemplateType === 'weekends' && styles.selectedTemplateChipText,
+                    { color: customTemplateType === 'weekends' ? 'white' : vibrantColors.success }
+                  ]}>周末</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.templateChip,
+                    customTemplateType === 'custom' && styles.selectedTemplateChip,
+                    { backgroundColor: customTemplateType === 'custom' ? vibrantColors.error : 'rgba(239, 71, 111, 0.1)' }
+                  ]}
+                  onPress={() => handleTemplateSelect('custom')}
+                >
+                  <Text style={[
+                    styles.templateChipText,
+                    customTemplateType === 'custom' && styles.selectedTemplateChipText,
+                    { color: customTemplateType === 'custom' ? 'white' : vibrantColors.error }
+                  ]}>自定义</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {customTemplateType === 'custom' && (
+                <>
+                  <Text style={[styles.modalSubtitle, {color: vibrantColors.error}]}>自定义周期设置</Text>
+                  <View style={styles.customPeriodContainer}>
+                    <Text style={styles.customPeriodLabel}>重复周期：</Text>
+                    <View style={styles.customPeriodButtonGroup}>
+                      {[1, 2, 3, 4, 5, 6, 7, 14].map((period) => (
+                        <TouchableOpacity
+                          key={period}
+                          style={[
+                            styles.periodButton,
+                            customPeriod === period && styles.selectedPeriodButton,
+                            { backgroundColor: customPeriod === period ? vibrantColors.error : 'rgba(239, 71, 111, 0.1)' }
+                          ]}
+                          onPress={() => {
+                            setCustomPeriod(period);
+                            if (!customDays.length || customDays[0] > period) {
+                              setCustomDays([1]);
+                            } else {
+                              setCustomDays(customDays.filter(day => day <= period));
+                            }
+                          }}
+                        >
+                          <Text style={[
+                            styles.periodButtonText,
+                            customPeriod === period && styles.selectedPeriodButtonText,
+                            { color: customPeriod === period ? 'white' : vibrantColors.error }
+                          ]}>
+                            {period === 1 ? '每天' : period === 7 ? '每周' : period === 14 ? '每两周' : `${period}天`}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                )
+                  
+                  <Text style={[styles.modalSubtitle, {color: vibrantColors.error}]}>选择提醒日</Text>
+                  <View style={styles.daysContainer}>
+                    {Array.from({ length: customPeriod }, (_, i) => i + 1).map((day) => (
+                      <TouchableOpacity
+                        key={day}
+                        style={[
+                          styles.dayButton,
+                          customDays.includes(day) && styles.selectedDayButton,
+                          { backgroundColor: customDays.includes(day) ? vibrantColors.error : 'rgba(239, 71, 111, 0.1)' }
+                        ]}
+                        onPress={() => handleCustomDayToggle(day)}
+                      >
+                        <Text style={[
+                          styles.dayButtonText,
+                          customDays.includes(day) && styles.selectedDayButtonText,
+                          { color: customDays.includes(day) ? 'white' : vibrantColors.error }
+                        ]}>
+                          {customPeriod === 7 ? 
+                            ['日', '一', '二', '三', '四', '五', '六'][day % 7 || 7 - 1] : 
+                            `${day}`}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
               )}
+              
+              <View style={[styles.summaryContainer, {borderLeftColor: vibrantColors.primary, backgroundColor: 'rgba(255, 107, 107, 0.1)'}]}>
+                <Text style={styles.summaryText}>
+                  当前设置: {getCustomPeriodDescription()}
+                </Text>
+              </View>
             </View>
+          </ScrollView>
+          
+          <View style={styles.modalButtonContainer}>
+            <Button
+              mode="outlined"
+              style={[styles.modalButton, { flex: 1, borderColor: vibrantColors.neutral }]}
+              onPress={() => setCustomModalVisible(false)}
+              icon="close"
+              textColor={vibrantColors.neutral}
+            >
+              取消
+            </Button>
             <Button
               mode="contained"
-              style={styles.modalButton}
+              style={[styles.modalButton, { flex: 1, backgroundColor: vibrantColors.primary }]}
               onPress={() => setCustomModalVisible(false)}
               icon="check"
             >
               确定
-            </Button>
-            <Button
-              mode="outlined"
-              style={styles.modalButton}
-              onPress={() => setCustomModalVisible(false)}
-              icon="close"
-            >
-              取消
             </Button>
           </View>
         </Modal>
@@ -1846,37 +2054,41 @@ const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: "white",
     padding: 24,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    margin: 20,
+    borderRadius: 16,
+    maxHeight: "85%",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: -2,
+      height: 5,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.34,
+    shadowRadius: 6.27,
+    elevation: 10,
   },
   androidModalContainer: {
-    margin: 0,
-    paddingBottom: Platform.OS === "android" ? 24 : 0,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    margin: 30,
+    maxWidth: 400,
+    alignSelf: "center",
   },
   modalContent: {
-    gap: 12,
+    width: "100%",
+    paddingBottom: 20,
   },
   modalButton: {
-    marginVertical: 6,
+    marginTop: 8,
+    marginBottom: 8,
     borderRadius: 8,
-    paddingVertical: 8,
+    height: 48,
+    justifyContent: 'center',
+    elevation: 2,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: "center",
-    color: "#1976d2",
+    color: "#FF6B6B", // 使用活泼的主色调
   },
   hourlyInputContainer: {
     marginTop: 10,
@@ -2039,5 +2251,161 @@ const styles = StyleSheet.create({
   },
   pickerContentContainer: {
     paddingVertical: 55, // 添加上下内边距，使选中项可以居中显示
+  },
+  templateContainer: {
+    marginVertical: 10,
+    marginBottom: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  templateChip: {
+    padding: 12,
+    borderWidth: 0,
+    borderRadius: 12,
+    width: '48%',
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  selectedTemplateChip: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  templateChipText: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  selectedTemplateChipText: {
+    fontWeight: 'bold',
+  },
+  customPeriodContainer: {
+    marginBottom: 20,
+  },
+  customPeriodLabel: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: '#555',
+  },
+  customPeriodButtonGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 10,
+  },
+  periodButton: {
+    padding: 8,
+    borderWidth: 0,
+    borderRadius: 10,
+    minWidth: 70,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  selectedPeriodButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  periodButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  selectedPeriodButtonText: {
+    fontWeight: 'bold',
+  },
+  daysContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 10,
+    marginBottom: 20,
+  },
+  dayButton: {
+    padding: 8,
+    borderWidth: 0,
+    borderRadius: 8,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  selectedDayButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  dayButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  selectedDayButtonText: {
+    fontWeight: 'bold',
+  },
+  summaryContainer: {
+    marginBottom: 20,
+    padding: 12,
+    backgroundColor: '#f0f7ff',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1976d2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  summaryText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 12,
+    color: '#1976d2',
+    textAlign: 'center',
+  },
+  modalScrollView: {
+    width: '100%',
+    maxHeight: Platform.OS === 'android' ? '65%' : '75%',
+  },
+  modalButtonContainer: {
+    marginTop: 16,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
   },
 });
