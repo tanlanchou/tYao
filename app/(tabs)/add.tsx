@@ -4,31 +4,32 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DatePicker from 'react-native-date-picker';
 import {
-    Button,
-    Chip,
-    Dialog,
-    IconButton,
-    Modal,
-    Portal,
-    Switch,
-    Text,
-    TextInput,
-    useTheme
+  Button,
+  Chip,
+  Dialog,
+  IconButton,
+  Modal,
+  Portal,
+  Switch,
+  Text,
+  TextInput,
+  useTheme
 } from "react-native-paper";
 import MedicineForm, { MedicineData } from "../components/MedicineForm";
 import { WebDatePicker, WebTimePicker } from "../components/WebPickers";
 import {
-    deleteAlarm,
-    getAllAlarms,
-    initDatabase,
-    saveAlarmWithMedicines,
-    updateAlarmWithMedicines,
+  deleteAlarm,
+  getAllAlarms,
+  initDatabase,
+  saveAlarmWithMedicines,
+  updateAlarmWithMedicines,
 } from "../services/database";
 import { isDesktopBrowser } from "../services/deviceDetection";
+import { useNotification } from "../services/NotificationContext";
 import {
-    cancelAlarmNotifications,
-    requestNotificationPermissions,
-    scheduleAlarmNotifications,
+  cancelAlarmNotifications,
+  requestNotificationPermissions,
+  scheduleAlarmNotifications,
 } from "../services/notifications";
 import vibrantColors from "../theme/colors"; // 导入vibrantColors
 import { Alarm, CombinedData } from "../types";
@@ -60,11 +61,7 @@ export default function AddScreen() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarType, setSnackbarType] = useState<
-    "error" | "warning" | "success" | "info"
-  >("info");
+  const { showNotification } = useNotification();
 
   // 时间提醒相关状态
   const [reminderDate, setReminderDate] = useState(new Date());
@@ -192,168 +189,131 @@ export default function AddScreen() {
     });
   }, [navigation, isEditMode]);
 
-  useEffect(() => {
-    if (snackbarVisible) {
-      const timer = setTimeout(() => setSnackbarVisible(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [snackbarVisible]);
-
   // 初始化数据库
   useEffect(() => {
-    initDatabase().catch((error) => {
-      console.error("Failed to initialize database:", error);
-      showSnackbar("数据库初始化失败", "error");
+    initDatabase().catch(error => {
+      console.error('Failed to initialize database:', error);
+      showNotification("数据库初始化失败", "error");
     });
   }, []);
 
-  // 清空所有数据的函数
-  const resetForm = () => {
-    setAlarmName("");
-    setStatus(1);
-    setReminderDate(new Date());
-    setReminderTimes([]);
-    setRepeatType("single");
-    setCustomPeriod(7);
-    setCustomDays([]);
-    setHourlyInterval(1);  // 添加重置hourlyInterval的代码
-    setMedicines([]);
-    setIsAdding(false);
-    setEditingIndex(null);
-    setDeleteIndex(null);
-  };
-
-  // 监听路由参数变化
+  // 如果是编辑模式，加载闹钟数据
   useEffect(() => {
     if (isEditMode) {
       loadAlarm();
     } else {
+      // 添加模式，设置默认值
       resetForm();
     }
   }, [id]);
 
+  const resetForm = () => {
+    setAlarmName("");
+    setStatus(1);
+    setMedicines([]);
+    
+    // 设置默认提醒时间
+    const now = new Date();
+    setReminderDate(now);
+    
+    // 设置默认提醒时间点（当前时间后30分钟）
+    const defaultTime = new Date();
+    defaultTime.setMinutes(defaultTime.getMinutes() + 30);
+    setReminderTimes([defaultTime]);
+    
+    setRepeatType("single");
+    setCustomPeriod(7);
+    setCustomDays([]);
+  };
+
   const loadAlarm = async () => {
+    if (!id) return;
+    
     try {
-      const alarms = (await getAllAlarms()) as Alarm[];
-      const foundAlarm = alarms.find((a) => a.id === Number(id));
-      if (foundAlarm) {
-        setAlarm(foundAlarm);
-        setAlarmName(foundAlarm.name);
-        setStatus(foundAlarm.status ?? 1);
-        setReminderDate(new Date(foundAlarm.reminder_date));
-        setReminderTimes(
-          foundAlarm.reminder_times.map((time) => new Date(time))
-        );
-        setRepeatType(
-          foundAlarm.repeat_type as "single" | "weekly" | "monthly" | "custom" | "hourly"
-        );
-        setCustomPeriod(foundAlarm.custom_period || 7);
-        setCustomDays(foundAlarm.custom_days || []);
-        
-        // 如果是hourly类型，设置hourlyInterval
-        if (foundAlarm.repeat_type === "hourly") {
-          setHourlyInterval(foundAlarm.custom_period || 1);
-        }
-        
-        setMedicines(
-          foundAlarm.medicines.map((medicine) => ({
-            ...medicine,
-            reminder: {
-              reminderDate: new Date(foundAlarm.reminder_date),
-              reminderTimes: foundAlarm.reminder_times.map(
-                (time) => new Date(time)
-              ),
-              repeatType: foundAlarm.repeat_type as
-                | "single"
-                | "weekly"
-                | "monthly"
-                | "custom"
-                | "hourly",
-              customPeriod: foundAlarm.custom_period || 7,
-              customDays: foundAlarm.custom_days || [],
-              displayData: {
-                reminderDateText: new Date(foundAlarm.reminder_date)
-                  .toLocaleDateString("zh-CN", {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                  })
-                  .replace(/\//g, "/"),
-                reminderTimesText: foundAlarm.reminder_times
-                  .map((time) => {
-                    const date = new Date(time);
-                    const hours = date.getHours().toString().padStart(2, "0");
-                    const minutes = date
-                      .getMinutes()
-                      .toString()
-                      .padStart(2, "0");
-                    return `${hours}:${minutes}`;
-                  })
-                  .join("、"),
-                repeatTypeText:
-                  foundAlarm.repeat_type === "single"
-                    ? "单次提醒"
-                    : foundAlarm.repeat_type === "weekly"
-                    ? "每周重复"
-                    : foundAlarm.repeat_type === "monthly"
-                    ? "每月重复"
-                    : foundAlarm.repeat_type === "hourly"
-                    ? `每${foundAlarm.custom_period}小时重复`
-                    : `自定义重复周期(${foundAlarm.custom_period}天)`,
-                customDaysText:
-                  foundAlarm.repeat_type === "custom"
-                    ? `第 ${foundAlarm.custom_days?.join(", ")} 天`
-                    : "",
-                fullDisplayText: "",
-              },
-            },
-          }))
-        );
-      } else {
-        console.error("Alarm not found");
-        router.back();
+      setLoading(true);
+      const alarms = await getAllAlarms();
+      const alarm = alarms.find(a => a.id === Number(id));
+      
+      if (!alarm) {
+        router.replace("/");
+        return;
       }
+      
+      setAlarm(alarm);
+      setAlarmName(alarm.name);
+      setStatus(alarm.status);
+      
+      // 设置提醒日期和时间
+      setReminderDate(new Date(alarm.reminder_date));
+      setReminderTimes(alarm.reminder_times.map(time => new Date(time)));
+      
+      // 设置重复类型
+      setRepeatType(alarm.repeat_type as "single" | "weekly" | "monthly" | "custom" | "hourly");
+      
+      // 设置自定义重复
+      if (alarm.custom_period) {
+        setCustomPeriod(alarm.custom_period);
+      }
+      
+      if (alarm.custom_days) {
+        setCustomDays(alarm.custom_days);
+      }
+      
+      // 设置药品
+      setMedicines(alarm.medicines.map(medicine => ({
+        id: medicine.id,
+        name: medicine.name,
+        image: medicine.image || '',
+        dosage: medicine.dosage || '',
+        reminder: {
+          reminderDate: new Date(alarm.reminder_date),
+          reminderTimes: alarm.reminder_times.map(time => new Date(time)),
+          repeatType: alarm.repeat_type as "single" | "weekly" | "monthly" | "custom",
+          customPeriod: alarm.custom_period,
+          customDays: alarm.custom_days,
+          displayData: {
+            reminderDateText: new Date(alarm.reminder_date).toLocaleDateString(),
+            reminderTimesText: alarm.reminder_times.map(time => {
+              const date = new Date(time);
+              return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            }).join(', '),
+            repeatTypeText: '',
+            customDaysText: '',
+            fullDisplayText: ''
+          }
+        }
+      })));
     } catch (error) {
-      console.error("Failed to load alarm:", error);
-      showSnackbar("加载闹钟数据失败", "error");
+      console.error('Failed to load alarm:', error);
+      showNotification("加载闹钟数据失败", "error");
     } finally {
       setLoading(false);
     }
-  };
-
-  // 统一弹出提示
-  const showSnackbar = (
-    message: string,
-    type: "error" | "warning" | "success" | "info" = "info"
-  ) => {
-    setSnackbarMessage(message);
-    setSnackbarType(type);
-    setSnackbarVisible(true);
   };
 
   const handleSaveAlarm = async () => {
     try {
       // 检查闹钟名称
       if (!alarmName.trim()) {
-        showSnackbar("请输入闹钟名称", "error");
+        showNotification("请输入闹钟名称", "error");
         return;
       }
 
       // 检查提醒日期
       if (!(reminderDate instanceof Date) || isNaN(reminderDate.getTime())) {
-        showSnackbar("请选择有效的提醒日期", "error");
+        showNotification("请选择有效的提醒日期", "error");
         return;
       }
 
       // 检查时间
       if (reminderTimes.length === 0) {
-        showSnackbar("请至少添加一个提醒时间", "error");
+        showNotification("请至少添加一个提醒时间", "error");
         return;
       }
 
       // 检查重复类型
       if (!repeatType) {
-        showSnackbar("请选择重复类型", "error");
+        showNotification("请选择重复类型", "error");
         return;
       }
 
@@ -362,13 +322,13 @@ export default function AddScreen() {
         repeatType === "custom" &&
         (!customPeriod || customDays.length === 0)
       ) {
-        showSnackbar("请设置自定义重复周期和天数", "error");
+        showNotification("请设置自定义重复周期和天数", "error");
         return;
       }
 
       // 检查药品
       if (medicines.length === 0) {
-        showSnackbar("请至少添加一个药品", "error");
+        showNotification("请至少添加一个药品", "error");
         return;
       }
 
@@ -418,7 +378,7 @@ export default function AddScreen() {
           })),
           status // 传递状态参数
         );
-        showSnackbar('闹钟更新成功', 'success');
+        showNotification('闹钟更新成功', 'success');
       } else {
         // 如果闹钟启用，则注册通知
         let notificationIds: string[] = [];
@@ -460,7 +420,7 @@ export default function AddScreen() {
           })),
           status // 传递状态参数
         );
-        showSnackbar('闹钟添加成功', 'success');
+        showNotification('闹钟添加成功', 'success');
       }
 
       // 返回首页并刷新
@@ -470,7 +430,7 @@ export default function AddScreen() {
       });
     } catch (error) {
       console.error("Failed to save alarm:", error);
-      showSnackbar(
+      showNotification(
         error instanceof Error ? error.message : "保存失败",
         "error"
       );
@@ -522,7 +482,7 @@ export default function AddScreen() {
       };
       setMedicines(newMedicines);
       setEditingIndex(null);
-      showSnackbar("编辑成功", "success");
+      showNotification("编辑成功", "success");
     } else {
       setMedicines([
         ...medicines,
@@ -566,7 +526,7 @@ export default function AddScreen() {
           },
         },
       ]);
-      showSnackbar("添加成功", "success");
+      showNotification("添加成功", "success");
     }
     setIsAdding(false);
   };
@@ -578,7 +538,7 @@ export default function AddScreen() {
 
   const handleEditMedicine = (index: number) => {
     if (isAdding) {
-      showSnackbar("请先保存或取消当前操作", "warning");
+      showNotification("请先保存或取消当前操作", "warning");
       return;
     }
     setEditingIndex(index);
@@ -588,7 +548,7 @@ export default function AddScreen() {
 
   const handleRequestDeleteMedicine = (index: number) => {
     if (isAdding) {
-      showSnackbar("请先保存或取消当前操作", "warning");
+      showNotification("请先保存或取消当前操作", "warning");
       return;
     }
     setDeleteIndex(index);
@@ -598,7 +558,7 @@ export default function AddScreen() {
     if (deleteIndex !== null) {
       setMedicines(medicines.filter((_, i) => i !== deleteIndex));
       setDeleteIndex(null);
-      showSnackbar("删除成功", "success");
+      showNotification("删除成功", "success");
     }
   };
 
@@ -692,7 +652,7 @@ export default function AddScreen() {
     if (reminderTimes.length < 6) {
       setReminderTimes([...reminderTimes, new Date()]);
     } else {
-      showSnackbar("最多只能添加6个时间", "warning");
+      showNotification("最多只能添加6个时间", "warning");
     }
   };
 
@@ -701,7 +661,7 @@ export default function AddScreen() {
       const newTimes = reminderTimes.filter((_, i) => i !== index);
       setReminderTimes(newTimes);
     } else {
-      showSnackbar("至少需要保留一个时间", "warning");
+      showNotification("至少需要保留一个时间", "warning");
     }
   };
 
@@ -772,7 +732,7 @@ export default function AddScreen() {
         await cancelAlarmNotifications(Number(id));
         // 删除闹钟
         await deleteAlarm(Number(id));
-        showSnackbar("闹钟已删除", "success");
+        showNotification("闹钟已删除", "success");
         // 跳转到首页
         router.replace({
           pathname: "/(tabs)",
@@ -781,7 +741,7 @@ export default function AddScreen() {
       }
     } catch (error) {
       console.error("Failed to delete alarm:", error);
-      showSnackbar("删除失败，请重试", "error");
+      showNotification("删除失败，请重试", "error");
     } finally {
       setIsDeleteAlarmDialogVisible(false);
     }
@@ -1136,7 +1096,6 @@ export default function AddScreen() {
               editingIndex !== null ? medicines[editingIndex] : undefined
             }
             isEdit={editingIndex !== null}
-            showSnackbar={showSnackbar}
           />
         ) : (
           <View style={styles.buttonContainer}>
@@ -1729,76 +1688,7 @@ export default function AddScreen() {
             initialTime={reminderTimes[currentTimeIndex] || new Date()}
           />
         )}
-        
-        {/* 小时间隔选择器对话框 */}
-        <Dialog
-          visible={showHourlyIntervalPicker}
-          onDismiss={() => setShowHourlyIntervalPicker(false)}
-          style={styles.customPickerDialog}
-        >
-          <Dialog.Title>选择重复间隔（小时）</Dialog.Title>
-          <Dialog.Content>
-            <View style={styles.customPickerContainer}>
-              <View style={styles.customPickerColumn}>
-                <Text style={styles.customPickerLabel}>小时</Text>
-                <ScrollView 
-                  ref={hourlyIntervalScrollRef}
-                  style={styles.customPickerScroll}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.pickerContentContainer}
-                >
-                  {generateHourlyIntervals().map(interval => (
-                    <TouchableOpacity
-                      key={interval}
-                      style={[
-                        styles.pickerItem,
-                        interval === tempHourlyInterval && styles.pickerItemSelected
-                      ]}
-                      onPress={() => handleHourlyIntervalPickerChange(interval)}
-                    >
-                      <Text style={[
-                        styles.pickerItemText,
-                        interval === tempHourlyInterval && styles.pickerItemTextSelected
-                      ]}>
-                        {interval}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowHourlyIntervalPicker(false)}>取消</Button>
-            <Button onPress={() => {
-              setHourlyInterval(tempHourlyInterval);
-              setShowHourlyIntervalPicker(false);
-            }}>确定</Button>
-          </Dialog.Actions>
-        </Dialog>
       </Portal>
-      {/* 顶部提示条 */}
-      {snackbarVisible && (
-        <View
-          style={[
-            styles.topNoticeBar,
-            snackbarType === "error" && { backgroundColor: "#d32f2f" },
-            snackbarType === "warning" && { backgroundColor: "#ffa000" },
-            snackbarType === "success" && { backgroundColor: "#388e3c" },
-            snackbarType === "info" && { backgroundColor: "#1976d2" },
-          ]}
-        >
-          <Text style={styles.topNoticeText}>{snackbarMessage}</Text>
-          <Button
-            mode="text"
-            onPress={() => setSnackbarVisible(false)}
-            labelStyle={{ color: "#fff", fontWeight: "bold" }}
-            compact
-          >
-            确定
-          </Button>
-        </View>
-      )}
     </View>
   );
 }
@@ -2439,32 +2329,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-  },
-  // 删除确认对话框样式
-  deleteDialog: {
-    backgroundColor: '#fff', 
-    borderRadius: 12,
-    elevation: 24,
-  },
-  deleteDialogTitle: {
-    textAlign: 'center',
-    fontSize: 18,
-    color: vibrantColors.textPrimary,
-  },
-  deleteDialogContent: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: vibrantColors.textSecondary,
-    paddingVertical: 8,
-  },
-  deleteDialogActions: {
-    justifyContent: 'space-around',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  deleteDialogButton: {
-    flex: 1,
-    marginHorizontal: 8,
-    borderRadius: 8,
   },
 });

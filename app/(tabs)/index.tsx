@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, Card, Dialog, IconButton, Portal, Switch, Text, useTheme } from 'react-native-paper';
+import { useNotification } from '../services/NotificationContext';
 import { deleteAlarm, getAllAlarms, initDatabase, updateAlarmStatus } from '../services/database';
 import { cancelAlarmNotifications, scheduleAlarmNotifications } from '../services/notifications';
 import vibrantColors from '../theme/colors';
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const theme = useTheme();
+  const { showNotification } = useNotification();
 
   // 添加通知监听器
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function HomeScreen() {
       setAlarmToDelete(null);
     } catch (error) {
       console.error('Failed to delete alarm:', error);
-      showSnackbar('删除失败，请重试', 'error');
+      showNotification('删除失败，请重试', 'error');
     }
   };
 
@@ -144,12 +146,6 @@ export default function HomeScreen() {
     }
   };
 
-  // 添加showSnackbar函数
-  const showSnackbar = (message: string, type: 'error' | 'warning' | 'success' | 'info' = 'info') => {
-    console.log(`[${type}] ${message}`);
-    // 如果需要可以在这里实现真正的snackbar显示
-  };
-
   // 修改handleToggleAlarmStatus函数中的repeat_type类型
   const handleToggleAlarmStatus = async (alarm: Alarm) => {
     try {
@@ -182,10 +178,10 @@ export default function HomeScreen() {
       
       // 重新加载数据
       await loadAlarms();
-      showSnackbar(`闹钟已${newStatus === 1 ? '启用' : '禁用'}`, 'success');
+      showNotification(`闹钟已${newStatus === 1 ? '启用' : '禁用'}`, 'success');
     } catch (error) {
       console.error('Failed to toggle alarm status:', error);
-      showSnackbar('更新闹钟状态失败', 'error');
+      showNotification('更新闹钟状态失败', 'error');
     }
   };
 

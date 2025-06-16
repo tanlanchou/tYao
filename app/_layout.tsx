@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import NotificationPermissionScreen from './components/NotificationPermissionScreen';
+import { NotificationProvider } from './services/NotificationContext';
 import { isBrowser, isBrowserNotificationSupported, startBrowserNotificationService, stopBrowserNotificationService } from './services/browserNotifications';
 import vibrantColors from './theme/colors';
 import vibrantTheme from './theme/theme';
@@ -89,28 +90,32 @@ export default function RootLayout() {
   if (isBrowser && hasNotificationPermission === false) {
     return (
       <PaperProvider theme={vibrantTheme}>
-        <View style={styles.pageContainer}>
-          <View style={styles.contentContainer}>
-            <NotificationPermissionScreen onPermissionGranted={handlePermissionGranted} />
+        <NotificationProvider>
+          <View style={styles.pageContainer}>
+            <View style={styles.contentContainer}>
+              <NotificationPermissionScreen onPermissionGranted={handlePermissionGranted} />
+            </View>
           </View>
-        </View>
+        </NotificationProvider>
       </PaperProvider>
     );
   }
 
   return (
     <PaperProvider theme={vibrantTheme}>
-      <ThemeProvider value={vibrantNavigationTheme}>
-        <View style={styles.pageContainer}>
-          <View style={styles.contentContainer}>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
+      <NotificationProvider>
+        <ThemeProvider value={vibrantNavigationTheme}>
+          <View style={styles.pageContainer}>
+            <View style={styles.contentContainer}>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+            </View>
           </View>
-        </View>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </NotificationProvider>
     </PaperProvider>
   );
 }

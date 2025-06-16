@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { Button, Modal, Portal, Text, TextInput } from 'react-native-paper';
+import { useNotification } from '../services/NotificationContext';
 import vibrantColors from "../theme/colors";
 
 interface MedicineFormProps {
@@ -9,7 +10,6 @@ interface MedicineFormProps {
   onCancel: () => void;
   initialData?: MedicineData;
   isEdit?: boolean;
-  showSnackbar: (msg: string, type?: 'error' | 'warning' | 'success' | 'info') => void;
 }
 
 export interface MedicineData {
@@ -18,11 +18,12 @@ export interface MedicineData {
   dosage?: string;
 }
 
-export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit = false, showSnackbar }: MedicineFormProps) {
+export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit = false }: MedicineFormProps) {
   const [name, setName] = useState(initialData?.name || '');
   const [image, setImage] = useState<string | undefined>(initialData?.image);
   const [dosage, setDosage] = useState(initialData?.dosage || '');
   const [isImagePickerVisible, setImagePickerVisible] = useState(false);
+  const { showNotification } = useNotification();
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -41,7 +42,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      showSnackbar('需要相机权限才能拍照', 'error');
+      showNotification('需要相机权限才能拍照', 'error');
       return;
     }
 
@@ -77,7 +78,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
 
   const handleSubmit = () => {
     if (!name.trim()) {
-      showSnackbar('请输入药品名称', 'error');
+      showNotification('请输入药品名称', 'error');
       return;
     }
 
