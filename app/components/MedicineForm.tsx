@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
-import { Image, Platform, StyleSheet, View } from 'react-native';
-import { Button, Modal, Portal, Text, TextInput } from 'react-native-paper';
-import { useNotification } from '../services/NotificationContext';
+import React, { useRef, useState } from 'react';
+import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Button, IconButton, Modal, Portal, Text, TextInput } from 'react-native-paper';
+import { NotificationType } from '../services/NotificationContext';
 import vibrantColors from "../theme/colors";
 
 interface MedicineFormProps {
@@ -10,6 +10,7 @@ interface MedicineFormProps {
   onCancel: () => void;
   initialData?: MedicineData;
   isEdit?: boolean;
+  showNotification?: (message: string, type?: NotificationType) => void;
 }
 
 export interface MedicineData {
@@ -18,12 +19,19 @@ export interface MedicineData {
   dosage?: string;
 }
 
-export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit = false }: MedicineFormProps) {
+export default function MedicineForm({ 
+  onSubmit, 
+  onCancel, 
+  initialData, 
+  isEdit = false,
+  showNotification 
+}: MedicineFormProps) {
   const [name, setName] = useState(initialData?.name || '');
   const [image, setImage] = useState<string | undefined>(initialData?.image);
   const [dosage, setDosage] = useState(initialData?.dosage || '');
   const [isImagePickerVisible, setImagePickerVisible] = useState(false);
-  const { showNotification } = useNotification();
+  const [isDosagePickerVisible, setDosagePickerVisible] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -42,7 +50,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      showNotification('需要相机权限才能拍照', 'error');
+      showNotification && showNotification('需要相机权限才能拍照', 'error');
       return;
     }
 
@@ -78,7 +86,7 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
 
   const handleSubmit = () => {
     if (!name.trim()) {
-      showNotification('请输入药品名称', 'error');
+      showNotification && showNotification('请输入药品名称', 'error');
       return;
     }
 
@@ -87,6 +95,35 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
       image,
       dosage,
     });
+  };
+
+  const handleDosageSelect = (value: string) => {
+    setDosage(value);
+    setDosagePickerVisible(false);
+  };
+
+  // 生成1-50的药量选项
+  const generateDosageOptions = () => {
+    const options = [];
+    for (let i = 1; i <= 50; i++) {
+      options.push(i.toString());
+    }
+    return options;
+  };
+
+  // 药量选项
+  const dosageOptions = generateDosageOptions();
+
+  // 滚动到当前选中的药量
+  const scrollToDosage = () => {
+    const currentDosage = parseInt(dosage || '1');
+    const index = Math.max(0, Math.min(currentDosage - 1, 49));
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: index * 50,
+        animated: false
+      });
+    }, 100);
   };
 
   return (
@@ -115,14 +152,25 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           <Image source={{ uri: image }} style={styles.previewImage} />
         )}
       </View>
-      <TextInput
-        label="药量（可选）"
-        value={dosage}
-        onChangeText={setDosage}
-        keyboardType="numeric"
-        style={styles.input}
-        mode="outlined"
-      />
+      <TouchableOpacity 
+        onPress={() => {
+          setDosagePickerVisible(true);
+          scrollToDosage();
+        }}
+        style={styles.dosageInputContainer}
+      >
+        <Text style={styles.label}>药量（可选）</Text>
+        <View style={styles.dosageInput}>
+          <Text style={styles.dosageText}>
+            {dosage ? `${dosage} 片/粒` : '点击选择药量'}
+          </Text>
+          <IconButton 
+            icon="chevron-down" 
+            size={20}
+            style={styles.dosageButton}
+          />
+        </View>
+      </TouchableOpacity>
       <View style={styles.buttonContainer}>
         <Button mode="outlined" onPress={onCancel} style={styles.button} icon="close">
           取消
@@ -131,6 +179,8 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
           {isEdit ? '保存' : '确认'}
         </Button>
       </View>
+
+      {/* 图片选择器模态框 */}
       <Portal>
         <Modal
           visible={isImagePickerVisible}
@@ -162,6 +212,68 @@ export default function MedicineForm({ onSubmit, onCancel, initialData, isEdit =
             )}
             <Button mode="outlined" onPress={() => setImagePickerVisible(false)} style={styles.modalButton} icon="close">
               取消
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
+
+      {/* 药量选择器模态框 */}
+      <Portal>
+        <Modal
+          visible={isDosagePickerVisible}
+          onDismiss={() => setDosagePickerVisible(false)}
+          contentContainerStyle={[
+            styles.dosageModalContainer,
+            Platform.OS === 'android' && styles.androidModalContainer
+          ]}
+          style={[
+            styles.modal,
+            Platform.OS === 'android' && styles.androidModal
+          ]}
+        >
+          <Text style={styles.modalTitle}>选择药量</Text>
+          <View style={styles.dosagePickerContainer}>
+            <ScrollView 
+              ref={scrollViewRef}
+              showsVerticalScrollIndicator={true}
+              style={styles.dosageScroller}
+              contentContainerStyle={styles.dosageScrollerContent}
+            >
+              {dosageOptions.map((value) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[
+                    styles.dosageOption,
+                    dosage === value && styles.selectedDosageOption
+                  ]}
+                  onPress={() => handleDosageSelect(value)}
+                >
+                  <Text 
+                    style={[
+                      styles.dosageOptionText,
+                      dosage === value && styles.selectedDosageOptionText
+                    ]}
+                  >
+                    {value} 片/粒
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+          <View style={styles.dosageModalActions}>
+            <Button 
+              mode="outlined" 
+              onPress={() => setDosagePickerVisible(false)} 
+              style={styles.dosageModalButton}
+            >
+              取消
+            </Button>
+            <Button 
+              mode="contained" 
+              onPress={() => setDosagePickerVisible(false)} 
+              style={styles.dosageModalButton}
+            >
+              确定
             </Button>
           </View>
         </Modal>
@@ -275,5 +387,82 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     textAlign: 'center',
     color: vibrantColors.primary,
+  },
+  // 药量选择器样式
+  dosageInputContainer: {
+    marginBottom: 16,
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 8,
+  },
+  dosageInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  dosageText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  dosageButton: {
+    margin: 0,
+    padding: 0,
+  },
+  dosageModalContainer: {
+    backgroundColor: 'white',
+    padding: 24,
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    maxHeight: '70%',
+  },
+  dosagePickerContainer: {
+    height: 250,
+    marginVertical: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f5f5f5',
+  },
+  dosageScroller: {
+    flex: 1,
+  },
+  dosageScrollerContent: {
+    paddingVertical: 20,
+  },
+  dosageOption: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#fff',
+  },
+  selectedDosageOption: {
+    backgroundColor: vibrantColors.primary + '20', // 添加透明度
+  },
+  dosageOptionText: {
+    fontSize: 18,
+    textAlign: 'center',
+    color: '#333',
+  },
+  selectedDosageOptionText: {
+    color: vibrantColors.primary,
+    fontWeight: 'bold',
+  },
+  dosageModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    gap: 12,
+  },
+  dosageModalButton: {
+    flex: 1,
+    borderRadius: 8,
   },
 }); 

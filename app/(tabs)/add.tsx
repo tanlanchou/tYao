@@ -15,7 +15,8 @@ import {
   TextInput,
   useTheme
 } from "react-native-paper";
-import MedicineForm, { MedicineData } from "../components/MedicineForm";
+import { MedicineData } from "../components/MedicineForm";
+import MedicineFormModal from "../components/MedicineFormModal";
 import { WebDatePicker, WebTimePicker } from "../components/WebPickers";
 import {
   deleteAlarm,
@@ -62,6 +63,9 @@ export default function AddScreen() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
   const { showNotification } = useNotification();
+  
+  // 添加药品模态框状态
+  const [medicineModalVisible, setMedicineModalVisible] = useState(false);
 
   // 时间提醒相关状态
   const [reminderDate, setReminderDate] = useState(new Date());
@@ -232,7 +236,7 @@ export default function AddScreen() {
     try {
       setLoading(true);
       const alarms = await getAllAlarms();
-      const alarm = alarms.find(a => a.id === Number(id));
+      const alarm = alarms.find((a: Alarm) => a.id === Number(id));
       
       if (!alarm) {
         router.replace("/");
@@ -245,7 +249,7 @@ export default function AddScreen() {
       
       // 设置提醒日期和时间
       setReminderDate(new Date(alarm.reminder_date));
-      setReminderTimes(alarm.reminder_times.map(time => new Date(time)));
+      setReminderTimes(alarm.reminder_times.map((time: string) => new Date(time)));
       
       // 设置重复类型
       setRepeatType(alarm.repeat_type as "single" | "weekly" | "monthly" | "custom" | "hourly");
@@ -260,20 +264,20 @@ export default function AddScreen() {
       }
       
       // 设置药品
-      setMedicines(alarm.medicines.map(medicine => ({
+      setMedicines(alarm.medicines.map((medicine: any) => ({
         id: medicine.id,
         name: medicine.name,
         image: medicine.image || '',
         dosage: medicine.dosage || '',
         reminder: {
           reminderDate: new Date(alarm.reminder_date),
-          reminderTimes: alarm.reminder_times.map(time => new Date(time)),
+          reminderTimes: alarm.reminder_times.map((time: string) => new Date(time)),
           repeatType: alarm.repeat_type as "single" | "weekly" | "monthly" | "custom",
           customPeriod: alarm.custom_period,
           customDays: alarm.custom_days,
           displayData: {
             reminderDateText: new Date(alarm.reminder_date).toLocaleDateString(),
-            reminderTimesText: alarm.reminder_times.map(time => {
+            reminderTimesText: alarm.reminder_times.map((time: string) => {
               const date = new Date(time);
               return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
             }).join(', '),
@@ -528,21 +532,18 @@ export default function AddScreen() {
       ]);
       showNotification("添加成功", "success");
     }
-    setIsAdding(false);
+    setMedicineModalVisible(false);
   };
 
   const handleStartAdding = () => {
-    setIsAdding(true);
+    setEditingIndex(null);
+    setMedicineModalVisible(true);
     scrollToBottom();
   };
 
   const handleEditMedicine = (index: number) => {
-    if (isAdding) {
-      showNotification("请先保存或取消当前操作", "warning");
-      return;
-    }
     setEditingIndex(index);
-    setIsAdding(true);
+    setMedicineModalVisible(true);
     scrollToBottom();
   };
 
@@ -567,7 +568,7 @@ export default function AddScreen() {
   };
 
   const handleCancel = () => {
-    setIsAdding(false);
+    setMedicineModalVisible(false);
     setEditingIndex(null);
   };
 
@@ -1032,37 +1033,30 @@ export default function AddScreen() {
           )}
         </View>
 
-        <View style={styles.medicineList}>
-          <Text variant="titleLarge" style={styles.sectionTitle}>
-            药品列表
-          </Text>
+        {/* 药品列表 */}
+        <View style={styles.medicineSection}>
+          <Text style={styles.sectionTitle}>药品列表</Text>
           {medicines.length === 0 ? (
-            <View style={styles.emptyList}>
-              <Text style={styles.emptyText}>暂无记录</Text>
+            <View style={styles.emptyMedicineList}>
+              <Text style={styles.emptyText}>暂无药品，请点击下方按钮添加</Text>
             </View>
           ) : (
             medicines.map((medicine, index) => (
               <View key={index} style={styles.medicineCard}>
                 <View style={styles.medicineHeader}>
-                  <Text variant="titleMedium" style={styles.medicineName}>
-                    {medicine.name}
-                  </Text>
-                  <View style={styles.iconButtonGroup}>
+                  <Text style={styles.medicineName}>{medicine.name}</Text>
+                  <View style={styles.medicineActions}>
                     <IconButton
                       icon="pencil"
-                      size={22}
-                      style={styles.iconButton}
-                      containerColor="#1976d2"
-                      iconColor="#fff"
+                      size={20}
                       onPress={() => handleEditMedicine(index)}
+                      style={styles.editButton}
                     />
                     <IconButton
                       icon="delete"
-                      size={22}
-                      style={styles.iconButton}
-                      containerColor="#d32f2f"
-                      iconColor="#fff"
+                      size={20}
                       onPress={() => handleRequestDeleteMedicine(index)}
+                      style={styles.deleteIcon}
                     />
                   </View>
                 </View>
@@ -1070,34 +1064,20 @@ export default function AddScreen() {
                   <Image
                     source={{ uri: medicine.image }}
                     style={styles.medicineImage}
+                    resizeMode="cover"
                   />
                 )}
-                {medicine.dosage && (
-                  <View style={styles.medicineInfoRow}>
-                    <Chip
-                      icon="pill"
-                      style={styles.chip}
-                      textStyle={styles.chipText}
-                    >
-                      药量: {medicine.dosage}
+                <View style={styles.medicineInfoRow}>
+                  {medicine.dosage && (
+                    <Chip style={styles.chip}>
+                      <Text style={styles.chipText}>剂量: {medicine.dosage}</Text>
                     </Chip>
-                  </View>
-                )}
+                  )}
+                </View>
               </View>
             ))
           )}
-        </View>
-
-        {isAdding ? (
-          <MedicineForm
-            onSubmit={handleAddMedicine}
-            onCancel={handleCancel}
-            initialData={
-              editingIndex !== null ? medicines[editingIndex] : undefined
-            }
-            isEdit={editingIndex !== null}
-          />
-        ) : (
+          
           <View style={styles.buttonContainer}>
             <Button
               mode="contained"
@@ -1128,8 +1108,17 @@ export default function AddScreen() {
               </Button>
             )}
           </View>
-        )}
+        </View>
       </ScrollView>
+
+      {/* 药品表单模态框 */}
+      <MedicineFormModal
+        visible={medicineModalVisible}
+        onDismiss={handleCancel}
+        onSubmit={handleAddMedicine}
+        initialData={editingIndex !== null ? medicines[editingIndex] : undefined}
+        isEdit={editingIndex !== null}
+      />
 
       <Portal>
         <Dialog
@@ -1723,7 +1712,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  medicineList: {
+  medicineSection: {
     marginBottom: 20,
     backgroundColor: "#f9f0eb",
     padding: 16,
@@ -1741,7 +1730,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontWeight: "bold",
   },
-  emptyList: {
+  emptyMedicineList: {
     backgroundColor: "#fff",
     borderRadius: 8,
     padding: 16,
@@ -1786,16 +1775,19 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  iconButtonGroup: {
+  medicineActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  iconButton: {
+  editButton: {
     marginHorizontal: 0,
     marginVertical: 0,
     alignItems: "center",
     justifyContent: "center",
+  },
+  deleteIcon: {
+    marginLeft: 8,
   },
   medicineImage: {
     width: "100%",
@@ -2329,5 +2321,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  deleteDialog: {
+    borderRadius: 12,
+    backgroundColor: "#fff",
+  },
+  deleteDialogTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: vibrantColors.error,
+  },
+  deleteDialogContent: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginVertical: 16,
+  },
+  deleteDialogActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+  },
+  deleteDialogButton: {
+    marginHorizontal: 8,
+    borderRadius: 8,
+    paddingVertical: 6,
   },
 });
