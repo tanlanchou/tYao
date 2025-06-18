@@ -4,33 +4,33 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import DatePicker from 'react-native-date-picker';
 import {
-  Button,
-  Chip,
-  Dialog,
-  IconButton,
-  Modal,
-  Portal,
-  Switch,
-  Text,
-  TextInput,
-  useTheme
+    Button,
+    Chip,
+    Dialog,
+    IconButton,
+    Modal,
+    Portal,
+    Switch,
+    Text,
+    TextInput,
+    useTheme
 } from "react-native-paper";
 import { MedicineData } from "../components/MedicineForm";
 import MedicineFormModal from "../components/MedicineFormModal";
 import { WebDatePicker, WebTimePicker } from "../components/WebPickers";
 import {
-  deleteAlarm,
-  getAllAlarms,
-  initDatabase,
-  saveAlarmWithMedicines,
-  updateAlarmWithMedicines,
+    deleteAlarm,
+    getAllAlarms,
+    initDatabase,
+    saveAlarmWithMedicines,
+    updateAlarmWithMedicines,
 } from "../services/database";
 import { isDesktopBrowser } from "../services/deviceDetection";
 import { useNotification } from "../services/NotificationContext";
 import {
-  cancelAlarmNotifications,
-  requestNotificationPermissions,
-  scheduleAlarmNotifications,
+    cancelAlarmNotifications,
+    requestNotificationPermissions,
+    scheduleAlarmNotifications,
 } from "../services/notifications";
 import vibrantColors from "../theme/colors"; // 导入vibrantColors
 import { Alarm, CombinedData } from "../types";
@@ -1155,9 +1155,9 @@ export default function AddScreen() {
           onDismiss={handleCancelDeleteAlarm}
           style={styles.deleteDialog}
         >
-          <Dialog.Title style={styles.deleteDialogTitle}>确认删除闹钟</Dialog.Title>
+          <Dialog.Title style={styles.deleteDialogTitle}>确认删除</Dialog.Title>
           <Dialog.Content>
-            <Text style={styles.deleteDialogContent}>确定要删除整个闹钟吗？此操作将删除所有相关药品及提醒，且无法撤销。</Text>
+            <Text style={styles.deleteDialogContent}>确定要删除这个闹钟吗？此操作无法撤销。</Text>
           </Dialog.Content>
           <Dialog.Actions style={styles.deleteDialogActions}>
             <Button 
@@ -1167,7 +1167,7 @@ export default function AddScreen() {
             >
               取消
             </Button>
-            <Button
+            <Button 
               onPress={handleDeleteAlarm}
               mode="contained"
               buttonColor={vibrantColors.error}
@@ -2323,27 +2323,29 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   deleteDialog: {
+    backgroundColor: '#fff', 
     borderRadius: 12,
-    backgroundColor: "#fff",
+    elevation: 24,
   },
   deleteDialogTitle: {
+    textAlign: 'center',
     fontSize: 18,
-    fontWeight: "bold",
-    color: vibrantColors.error,
+    color: vibrantColors.textPrimary,
   },
   deleteDialogContent: {
+    textAlign: 'center',
     fontSize: 16,
-    lineHeight: 24,
-    marginVertical: 16,
+    color: vibrantColors.textSecondary,
+    paddingVertical: 8,
   },
   deleteDialogActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   deleteDialogButton: {
+    flex: 1,
     marginHorizontal: 8,
     borderRadius: 8,
-    paddingVertical: 6,
   },
 });
